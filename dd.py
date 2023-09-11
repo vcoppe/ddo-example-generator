@@ -283,6 +283,7 @@ class Diagram:
         self.input = input
         self.layers = [Layer(input, input.root.depth, input.root)]
         self.lel = input.root.depth
+        self.relaxed = input.relaxed
         self.cutset_nodes = []
 
         input.root.cutset = False
@@ -362,7 +363,7 @@ class Diagram:
         return self.lel == self.input.model.nb_variables()
     
     def __str__(self):
-        ret = "diagram<lel=" + str(self.lel) + ",layers=<\n"
+        ret = "diagram<" + ("exact" if self.is_exact() else ("relaxed" if self.relaxed else "restricted")) +  ",lel=" + str(self.lel) + ",layers=<\n"
         for layer in self.layers:
             ret += str(layer) + "\n"
         ret += ">>"
