@@ -285,6 +285,8 @@ class Diagram:
         self.lel = input.root.depth
         self.cutset_nodes = []
 
+        input.root.cutset = False
+
         self.used_dominance = False
         self.used_cache = False
         self.used_rub = False
