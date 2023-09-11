@@ -31,7 +31,8 @@ class Solver:
             self.input.best = best
 
 
-    def solve(self):
+    def solve(self, settings=None):
+        it = 0
         self.enqueue(Node(self.input.model.root()))
 
         while not self.finished():
@@ -42,6 +43,10 @@ class Solver:
 
             self.input.relaxed = False
 
+            if settings is not None and it < len(settings):
+                self.input.settings = settings[it]
+                it += 1
+
             restricted = Diagram(self.input)
             self.dds.append(restricted)
 
@@ -51,6 +56,10 @@ class Solver:
                 continue
 
             self.input.relaxed = True
+
+            if settings is not None and it < len(settings):
+                self.input.settings = settings[it]
+                it += 1
 
             relaxed = Diagram(self.input)
             self.dds.append(relaxed)

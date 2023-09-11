@@ -4,7 +4,30 @@ from knapsack import *
 from solver import *
 
 def main():
-    configs = [(True, False, False, False), (True, True, False, False), (True, True, True, False), (True, True, True, True), (False, False, False, False)]
+
+    width = 3
+    cutset = Cutset.FRONTIER
+
+    settings = [
+        [
+            Settings(width, cutset, use_rub=True, use_locb=True, use_cache=False, use_dominance=False),
+            Settings(width, cutset, use_rub=True, use_locb=True, use_cache=False, use_dominance=False),
+            Settings(width, cutset, use_rub=False, use_locb=False, use_cache=True, use_dominance=False),
+            Settings(width, cutset, use_rub=False, use_locb=False, use_cache=True, use_dominance=False),
+        ],
+        [
+            Settings(width, cutset, use_rub=True, use_locb=True, use_cache=False, use_dominance=False),
+            Settings(width, cutset, use_rub=True, use_locb=True, use_cache=False, use_dominance=False),
+            Settings(width, cutset, use_rub=True, use_locb=True, use_cache=True, use_dominance=False),
+            Settings(width, cutset, use_rub=True, use_locb=True, use_cache=True, use_dominance=False),
+        ],
+        [
+            Settings(width, cutset, use_rub=True, use_locb=True, use_cache=False, use_dominance=True),
+            Settings(width, cutset, use_rub=True, use_locb=True, use_cache=False, use_dominance=True),
+            Settings(width, cutset, use_rub=True, use_locb=True, use_cache=True, use_dominance=True),
+            Settings(width, cutset, use_rub=True, use_locb=True, use_cache=True, use_dominance=True),
+        ]
+    ]
 
     rand = random.Random(0)
 
@@ -16,29 +39,36 @@ def main():
         model = KnapsackModel(instance)
         dominance_rule = KnapsackDominance()
 
-        width = 3
+        for i in range(len(settings)):
+            setting = settings[i]
 
-        for (use_rub, use_locb, use_cache, use_dominance) in configs:
-            solver = Solver(model, dominance_rule, Settings(width, Cutset.LAYER, use_rub, use_locb, use_cache, use_dominance))
-            solver.solve()
+            solver = Solver(model, dominance_rule, None)
+            solver.solve(setting)
 
-            if len(solver.dds) < 2:
+            if len(solver.dds) < 4:
                 found = False
                 break
 
-            if use_dominance:
-                if not (solver.dds[0].used_dominance or solver.dds[1].used_dominance):
+            if any(s.use_dominance for s in setting):
+                if not any(dd.used_dominance for dd in solver.dds):
                     found = False
                     break
-            elif use_cache:
+            if any(s.use_cache for s in setting):
                 if not any(dd.used_cache for dd in solver.dds):
                     found = False
                     break
-            elif use_locb:
+                cnt = 0
+                for dd in solver.dds:
+                    if dd.relaxed or dd.is_exact():
+                        cnt += 1
+                        if cnt == 3 and ((i == 0 and not dd.used_cache_larger) or (i > 0 and not dd.used_cache)):
+                            found = False
+                            break
+            if setting[1].use_locb:
                 if not solver.dds[1].used_locb:
                     found = False
                     break
-            elif use_rub:
+            if setting[1].use_rub:
                 if not solver.dds[1].used_rub:
                     found = False
                     break
