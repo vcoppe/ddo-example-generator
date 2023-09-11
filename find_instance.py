@@ -14,30 +14,32 @@ def main():
         all_dds = []
 
         model = KnapsackModel(instance)
-        dominance = KnapsackDominance()
+        dominance_rule = KnapsackDominance()
+
+        width = 3
 
         for (use_rub, use_locb, use_cache, use_dominance) in configs:
-            input = CompilationInput(model, dominance, Node(model.root()), 0, dict(), dict(), False, 3, use_rub, use_locb, use_cache, use_dominance)
+            input = CompilationInput(model, dominance_rule, Node(model.root()), 0, dict(), dict(), False, width, Cutset.LAYER, use_rub, use_locb, use_cache, use_dominance)
             dds = []
 
             dds.append(Diagram(input))
             dds[-1].compile()
 
-            if dds[-1].best_value() is not None:
-                input.best = dds[-1].best_value()
+            if dds[-1].get_best_value() is not None:
+                input.best = dds[-1].get_best_value()
 
             input.relaxed = True
 
             dds.append(Diagram(input))
             dds[-1].compile()
 
-            lel = dds[-1].cutset()
+            cutset = dds[-1].get_cutset()
 
-            if len(lel.nodes) == 0:
+            if len(cutset) == 0:
                 found = False
                 break
 
-            for node in sorted(lel.nodes.values(), key=lambda n: n.ub, reverse=True):
+            for node in sorted(cutset, key=lambda n: n.ub, reverse=True):
                 if node.ub <= input.best:
                     continue
 
@@ -45,8 +47,8 @@ def main():
                 dds.append(Diagram(input))
                 dds[-1].compile()
 
-                if dds[-1].best_value() is not None and dds[-1].best_value() > input.best:
-                    input.best = dds[-1].best_value()
+                if dds[-1].get_best_value() is not None and dds[-1].get_best_value() > input.best:
+                    input.best = dds[-1].get_best_value()
 
             if use_dominance:
                 if not (dds[0].used_dominance or dds[1].used_dominance):

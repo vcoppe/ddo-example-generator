@@ -1,7 +1,12 @@
 import math
+from enum import Enum
+
+class Cutset(Enum):
+    LAYER = 0
+    FRONTIER = 1
 
 class CompilationInput:
-    def __init__(self, model, dominance_rule, root, best=0, cache=dict(), dominance=dict(), relaxed=False, width=math.inf, use_rub=False, use_locb=False, use_cache=False, use_dominance=False):
+    def __init__(self, model, dominance_rule, root, best=0, cache=dict(), dominance=dict(), relaxed=False, width=math.inf, cutset=Cutset.LAYER, use_rub=False, use_locb=False, use_cache=False, use_dominance=False):
         self.model = model
         self.dominance_rule = dominance_rule
         self.root = root
@@ -10,6 +15,7 @@ class CompilationInput:
         self.dominance = dominance
         self.relaxed = relaxed
         self.width = width
+        self.cutset = cutset
 
         self.use_rub = use_rub
         self.use_locb = use_locb
@@ -34,6 +40,8 @@ class Node:
         if arc is not None:
             self.arcs.append(arc)
         self.relaxed = relaxed
+        self.cutset = False
+        self.above_cutset = False
     
     def __str__(self):
         return "node<state=" + str(self.state) + ",value_top=" + str(self.value_top) \
@@ -198,12 +206,22 @@ class Layer:
                 used = True
         return used
     
+    def frontier(self, cutset_nodes):
+        for node in self.nodes.values():
+            if node.cutset:
+                cutset_nodes.append(node)
+            for arc in node.arcs:
+                if node.relaxed and not arc.parent.relaxed:
+                    arc.parent.cutset = True
+                    arc.parent.above_cutset = True
+                arc.parent.above_cutset |= node.above_cutset
+    
     def filter_with_local_bounds(self):
         if not self.input.use_locb:
             return False
         used = False
         for node in list(self.nodes.values()):
-            if node.value_top + node.value_bot <= self.input.best:
+            if node.cutset and node.value_top + node.value_bot <= self.input.best:
                 node.theta = self.input.best - node.value_bot
                 self.deleted_by_local_bounds.append(node)
                 del self.nodes[node.state]
@@ -221,12 +239,14 @@ class Layer:
     def thresholds(self, lel):
         for nodes in [self.deleted_by_dominance, self.deleted_by_cache, self.deleted_by_rub, self.deleted_by_local_bounds]:
             for node in nodes:
+                if (self.input.cutset == Cutset.FRONTIER or (self.input.cutset == Cutset.LAYER and node.depth <= lel)) and not node.relaxed:
+                    self.input.cache[node.state] = node.theta
                 for arc in node.arcs:
                     arc.parent.theta = min(arc.parent.theta, node.theta + arc.reward)
         for node in self.nodes.values():
-            if self.depth == lel:
+            if node.cutset:
                 node.theta = min(node.theta, node.value_top)
-            if self.depth <= lel:
+            if node.above_cutset:
                 self.input.cache[node.state] = node.theta
             for arc in node.arcs:
                 arc.parent.theta = min(arc.parent.theta, node.theta + arc.reward)
@@ -266,6 +286,7 @@ class Diagram:
         self.input = input
         self.layers = [Layer(input, input.root.depth, input.root)]
         self.lel = input.root.depth
+        self.cutset_nodes = []
 
         self.used_dominance = False
         self.used_cache = False
@@ -291,20 +312,33 @@ class Diagram:
         self.layers[-1].finalize()
 
         if self.input.relaxed or self.lel == self.input.model.nb_variables():
+            self.cutset()
             self.local_bounds()
             self.thresholds()
+
+    def cutset(self):
+        if self.input.cutset == Cutset.LAYER:
+            for node in self.layers[self.lel - self.input.root.depth].nodes.values():
+                node.cutset = True
+                self.cutset_nodes.append(node)
+            for layer in self.layers[(self.lel - self.input.root.depth)::-1]:
+                for node in layer.nodes.values():
+                    node.above_cutset = True
+        elif self.input.cutset == Cutset.FRONTIER:
+            for layer in reversed(self.layers):
+                layer.frontier(self.cutset_nodes)
     
     def local_bounds(self):
         for node in self.layers[-1].nodes.values():
             node.value_bot = 0
         for layer in reversed(self.layers):
             layer.local_bounds()
-        self.used_locb |= self.cutset().filter_with_local_bounds()
+            self.used_locb |= layer.filter_with_local_bounds()
 
         best_value = -math.inf
-        if self.best_value() is not None:
-            best_value = self.best_value()
-        for node in self.cutset().nodes.values():
+        if self.get_best_value() is not None:
+            best_value = self.get_best_value()
+        for node in self.cutset_nodes:
             node.ub = best_value
             if self.input.use_rub:
                 node.ub = min(node.ub, node.value_top + node.rub)
@@ -315,19 +349,17 @@ class Diagram:
         for layer in reversed(self.layers):
             layer.thresholds(self.lel)
 
-    def best_value(self):
+    def get_best_value(self):
         if self.layers[-1].width() > 0:
             return next(iter(self.layers[-1].nodes.values())).value_top
         return None
 
-    def cutset(self):
-        return self.layers[self.lel - self.input.root.depth]
+    def get_cutset(self):
+        return self.cutset_nodes
     
     def __str__(self):
         ret = "diagram<lel=" + str(self.lel) + ",layers=<\n"
         for layer in self.layers:
-            if layer.depth < self.input.root.depth:
-                continue
             ret += str(layer) + "\n"
         ret += ">>"
         return ret
