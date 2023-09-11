@@ -24,6 +24,12 @@ class Solver:
     
     def finished(self):
         return self.queue.empty()
+    
+    def update_best(self, dd):
+        best = dd.get_best_value()
+        if best is not None and best > self.input.best:
+            self.input.best = best
+
 
     def solve(self):
         self.enqueue(Node(self.input.model.root()))
@@ -37,12 +43,9 @@ class Solver:
             self.input.relaxed = False
 
             restricted = Diagram(self.input)
-            restricted.compile()
             self.dds.append(restricted)
 
-            best = restricted.get_best_value()
-            if best is not None and best > self.input.best:
-                self.input.best = best
+            self.update_best(restricted)
 
             if restricted.is_exact():
                 continue
@@ -50,13 +53,10 @@ class Solver:
             self.input.relaxed = True
 
             relaxed = Diagram(self.input)
-            relaxed.compile()
             self.dds.append(relaxed)
 
             if relaxed.is_exact():
-                best = relaxed.get_best_value()
-                if best is not None and best > self.input.best:
-                    self.input.best = best
+                self.update_best(relaxed)
             else:
                 cutset = relaxed.get_cutset()
                 for node in cutset:

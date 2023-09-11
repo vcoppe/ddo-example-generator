@@ -291,6 +291,8 @@ class Diagram:
         self.used_cache = False
         self.used_rub = False
         self.used_locb = False
+
+        self.compile()
         
     def compile(self):
         depth = self.layers[-1].depth
