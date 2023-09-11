@@ -6,7 +6,7 @@ class Cutset(Enum):
     FRONTIER = 1
 
 class CompilationInput:
-    def __init__(self, model, dominance_rule, root, best=0, cache=dict(), dominance=dict(), relaxed=False, width=math.inf, cutset=Cutset.LAYER, use_rub=False, use_locb=False, use_cache=False, use_dominance=False):
+    def __init__(self, model, dominance_rule, root, best, cache, dominance, relaxed, settings):
         self.model = model
         self.dominance_rule = dominance_rule
         self.root = root
@@ -14,13 +14,7 @@ class CompilationInput:
         self.cache = cache
         self.dominance = dominance
         self.relaxed = relaxed
-        self.width = width
-        self.cutset = cutset
-
-        self.use_rub = use_rub
-        self.use_locb = use_locb
-        self.use_cache = use_cache
-        self.use_dominance = use_dominance
+        self.settings = settings
 
 class Arc:
     def __init__(self, parent, reward):
@@ -42,6 +36,9 @@ class Node:
         self.relaxed = relaxed
         self.cutset = False
         self.above_cutset = False
+
+    def __lt__(self, other):
+        return self.ub > other.ub
     
     def __str__(self):
         return "node<state=" + str(self.state) + ",value_top=" + str(self.value_top) \
@@ -93,12 +90,12 @@ class Layer:
             self.restrict(order)
     
     def restrict(self, order):
-        for node in order[self.input.width:]:
+        for node in order[self.input.settings.width:]:
             self.deleted_by_shrink.append(node)
             del self.nodes[node.state]
     
     def relax(self, order):
-        relax_start = self.input.width - 1
+        relax_start = self.input.settings.width - 1
         self.relax_helper(order[relax_start:], Node(order[relax_start].state.clone(), order[relax_start].depth, relaxed=True))
     
     def finalize(self):
@@ -117,7 +114,7 @@ class Layer:
         self.insert(merged)
     
     def filter_with_dominance(self):
-        if not self.input.use_dominance:
+        if not self.input.settings.use_dominance:
             return False
         used = False
         order = sorted(self.nodes.values(), key=lambda n: (self.input.dominance_rule.value(n.state), n.value_top), reverse=True)
@@ -181,7 +178,7 @@ class Layer:
         return used
     
     def filter_with_cache(self):
-        if not self.input.use_cache:
+        if not self.input.settings.use_cache:
             return False
         used = False
         for node in list(self.nodes.values()):
@@ -194,7 +191,7 @@ class Layer:
         return used
     
     def filter_with_rub(self):
-        if not self.input.use_rub:
+        if not self.input.settings.use_rub:
             return False
         used = False
         for node in list(self.nodes.values()):
@@ -217,7 +214,7 @@ class Layer:
                 arc.parent.above_cutset |= node.above_cutset
     
     def filter_with_local_bounds(self):
-        if not self.input.use_locb:
+        if not self.input.settings.use_locb:
             return False
         used = False
         for node in list(self.nodes.values()):
@@ -239,7 +236,7 @@ class Layer:
     def thresholds(self, lel):
         for nodes in [self.deleted_by_dominance, self.deleted_by_cache, self.deleted_by_rub, self.deleted_by_local_bounds]:
             for node in nodes:
-                if (self.input.cutset == Cutset.FRONTIER or (self.input.cutset == Cutset.LAYER and node.depth <= lel)) and not node.relaxed:
+                if (self.input.settings.cutset == Cutset.FRONTIER or (self.input.settings.cutset == Cutset.LAYER and node.depth <= lel)) and not node.relaxed:
                     self.input.cache[node.state] = node.theta
                 for arc in node.arcs:
                     arc.parent.theta = min(arc.parent.theta, node.theta + arc.reward)
@@ -303,7 +300,7 @@ class Diagram:
                 self.used_cache |= self.layers[-1].filter_with_cache()
                 self.used_rub |= self.layers[-1].filter_with_rub()
 
-            if depth > self.input.root.depth and depth + 1 < self.input.model.nb_variables() and self.layers[-1].width() > self.input.width:
+            if depth > self.input.root.depth and depth + 1 < self.input.model.nb_variables() and self.layers[-1].width() > self.input.settings.width:
                 self.layers[-1].shrink()
             elif self.lel == depth:
                 self.lel = depth + 1
@@ -311,20 +308,20 @@ class Diagram:
             depth += 1
         self.layers[-1].finalize()
 
-        if self.input.relaxed or self.lel == self.input.model.nb_variables():
+        if self.input.relaxed or self.is_exact():
             self.cutset()
             self.local_bounds()
             self.thresholds()
 
     def cutset(self):
-        if self.input.cutset == Cutset.LAYER:
+        if self.input.settings.cutset == Cutset.LAYER:
             for node in self.layers[self.lel - self.input.root.depth].nodes.values():
                 node.cutset = True
                 self.cutset_nodes.append(node)
             for layer in self.layers[(self.lel - self.input.root.depth)::-1]:
                 for node in layer.nodes.values():
                     node.above_cutset = True
-        elif self.input.cutset == Cutset.FRONTIER:
+        elif self.input.settings.cutset == Cutset.FRONTIER:
             for layer in reversed(self.layers):
                 layer.frontier(self.cutset_nodes)
     
@@ -340,9 +337,9 @@ class Diagram:
             best_value = self.get_best_value()
         for node in self.cutset_nodes:
             node.ub = best_value
-            if self.input.use_rub:
+            if self.input.settings.use_rub:
                 node.ub = min(node.ub, node.value_top + node.rub)
-            if self.input.use_locb:
+            if self.input.settings.use_locb:
                 node.ub = min(node.ub, node.value_top + node.value_bot)
     
     def thresholds(self):
@@ -356,6 +353,9 @@ class Diagram:
 
     def get_cutset(self):
         return self.cutset_nodes
+    
+    def is_exact(self):
+        return self.lel == self.input.model.nb_variables()
     
     def __str__(self):
         ret = "diagram<lel=" + str(self.lel) + ",layers=<\n"
