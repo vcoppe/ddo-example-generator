@@ -348,6 +348,8 @@ class Diagram:
                 node.ub = min(node.ub, node.value_top + node.value_bot)
     
     def thresholds(self):
+        if not self.input.settings.use_cache:
+            return
         for layer in reversed(self.layers):
             layer.thresholds(self.lel)
 
