@@ -179,16 +179,18 @@ class Layer:
     
     def filter_with_cache(self):
         if not self.input.settings.use_cache:
-            return False
+            return (False, False)
         used = False
+        used_larger = False
         for node in list(self.nodes.values()):
-            theta = self.input.cache.get(node.state)
-            if theta is not None and node.value_top <= theta:
-                node.theta = theta
+            threshold = self.input.cache.get(node.state)
+            if threshold is not None and node.value_top <= threshold.theta:
+                node.theta = threshold.theta
                 self.deleted_by_cache.append(node)
                 del self.nodes[node.state]
                 used = True
-        return used
+                used_larger |= threshold.larger
+        return (used, used_larger)
     
     def filter_with_rub(self):
         if not self.input.settings.use_rub:
@@ -237,14 +239,14 @@ class Layer:
         for nodes in [self.deleted_by_dominance, self.deleted_by_cache, self.deleted_by_rub, self.deleted_by_local_bounds]:
             for node in nodes:
                 if (self.input.settings.cutset == Cutset.FRONTIER or (self.input.settings.cutset == Cutset.LAYER and node.depth <= lel)) and not node.relaxed:
-                    self.input.cache[node.state] = node.theta
+                    self.input.cache[node.state] = Threshold(node.theta, node.theta > node.value_top)
                 for arc in node.arcs:
                     arc.parent.theta = min(arc.parent.theta, node.theta + arc.reward)
         for node in self.nodes.values():
             if node.cutset:
                 node.theta = min(node.theta, node.value_top)
             if node.above_cutset:
-                self.input.cache[node.state] = node.theta
+                self.input.cache[node.state] = Threshold(node.theta, node.theta > node.value_top)
             for arc in node.arcs:
                 arc.parent.theta = min(arc.parent.theta, node.theta + arc.reward)
     
@@ -290,6 +292,7 @@ class Diagram:
 
         self.used_dominance = False
         self.used_cache = False
+        self.used_cache_larger = False
         self.used_rub = False
         self.used_locb = False
 
@@ -302,7 +305,9 @@ class Diagram:
 
             if depth > self.input.root.depth and depth + 1 < self.input.model.nb_variables():
                 self.used_dominance |= self.layers[-1].filter_with_dominance()
-                self.used_cache |= self.layers[-1].filter_with_cache()
+                (used_cache, used_cache_larger) = self.layers[-1].filter_with_cache()
+                self.used_cache |= used_cache
+                self.used_cache_larger |= used_cache_larger
                 self.used_rub |= self.layers[-1].filter_with_rub()
 
             if depth > self.input.root.depth and depth + 1 < self.input.model.nb_variables() and self.layers[-1].width() > self.input.settings.width:
@@ -370,3 +375,8 @@ class Diagram:
             ret += str(layer) + "\n"
         ret += ">>"
         return ret
+    
+class Threshold:
+    def __init__(self, theta, larger):
+        self.theta = theta
+        self.larger = larger
