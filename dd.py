@@ -241,14 +241,14 @@ class Layer:
                 if (self.input.settings.cutset == Cutset.FRONTIER or (self.input.settings.cutset == Cutset.LAYER and node.depth <= lel)) and not node.relaxed:
                     self.input.cache[node.state] = Threshold(node.theta, node.theta > node.value_top)
                 for arc in node.arcs:
-                    arc.parent.theta = min(arc.parent.theta, node.theta + arc.reward)
+                    arc.parent.theta = min(arc.parent.theta, node.theta - arc.reward)
         for node in self.nodes.values():
             if node.cutset:
                 node.theta = min(node.theta, node.value_top)
             if node.above_cutset:
                 self.input.cache[node.state] = Threshold(node.theta, node.theta > node.value_top)
             for arc in node.arcs:
-                arc.parent.theta = min(arc.parent.theta, node.theta + arc.reward)
+                arc.parent.theta = min(arc.parent.theta, node.theta - arc.reward)
     
     def __str__(self):
         ret = "layer<depth=" + str(self.depth) + ",nodes=<"
@@ -332,6 +332,11 @@ class Diagram:
                 for node in layer.nodes.values():
                     node.above_cutset = True
         elif self.input.settings.cutset == Cutset.FRONTIER:
+            if self.is_exact():
+                terminal = self.get_terminal()
+                if terminal is not None:
+                    terminal.theta = max(self.input.best, terminal.value_top)
+                    terminal.above_cutset = True
             for layer in reversed(self.layers):
                 layer.frontier(self.cutset_nodes)
     
@@ -358,10 +363,16 @@ class Diagram:
         for layer in reversed(self.layers):
             layer.thresholds(self.lel)
 
-    def get_best_value(self):
+    def get_terminal(self):
         if self.layers[-1].width() > 0:
-            return next(iter(self.layers[-1].nodes.values())).value_top
+            return next(iter(self.layers[-1].nodes.values()))
         return None
+
+    def get_best_value(self):
+        terminal = self.get_terminal()
+        if terminal is None:
+            return None
+        return terminal.value_top
 
     def get_cutset(self):
         return self.cutset_nodes
