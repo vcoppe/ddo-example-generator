@@ -69,4 +69,4 @@ class Solver:
             else:
                 cutset = relaxed.get_cutset()
                 for node in cutset:
-                    self.enqueue(node)
+                    self.enqueue(Node(node.state, node.depth, node.value_top, ub=node.ub))
