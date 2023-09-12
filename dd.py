@@ -22,14 +22,14 @@ class Arc:
         self.reward = reward
         
 class Node:
-    def __init__(self, state, depth=0, value_top=0, arc=None, relaxed=False):
+    def __init__(self, state, depth=0, value_top=0, arc=None, relaxed=False, ub=math.inf):
         self.state = state
         self.depth = depth
         self.value_top = value_top
         self.value_bot = -math.inf
         self.theta = math.inf
         self.rub = math.inf
-        self.ub = math.inf
+        self.ub = ub
         self.arcs = []
         if arc is not None:
             self.arcs.append(arc)
@@ -179,9 +179,10 @@ class Layer:
     
     def filter_with_cache(self):
         if not self.input.settings.use_cache:
-            return (False, False)
+            return (False, False, False)
         used = False
         used_larger = False
+        used_pruning = False
         for node in list(self.nodes.values()):
             threshold = self.input.cache.get(node.state)
             if threshold is not None and node.value_top <= threshold.theta:
@@ -189,8 +190,9 @@ class Layer:
                 self.deleted_by_cache.append(node)
                 del self.nodes[node.state]
                 used = True
-                used_larger |= threshold.larger
-        return (used, used_larger)
+                used_larger |= node.value_top > threshold.value_top
+                used_pruning |= threshold.pruning
+        return (used, used_larger, used_pruning)
     
     def filter_with_rub(self):
         if not self.input.settings.use_rub:
@@ -239,14 +241,14 @@ class Layer:
         for nodes in [self.deleted_by_dominance, self.deleted_by_cache, self.deleted_by_rub, self.deleted_by_local_bounds]:
             for node in nodes:
                 if (self.input.settings.cutset == Cutset.FRONTIER or (self.input.settings.cutset == Cutset.LAYER and node.depth <= lel)) and not node.relaxed:
-                    self.input.cache[node.state] = Threshold(node.theta, node.theta > node.value_top)
+                    self.input.cache[node.state] = Threshold(node.theta, node.value_top, True)
                 for arc in node.arcs:
                     arc.parent.theta = min(arc.parent.theta, node.theta - arc.reward)
         for node in self.nodes.values():
             if node.cutset:
                 node.theta = min(node.theta, node.value_top)
             if node.above_cutset:
-                self.input.cache[node.state] = Threshold(node.theta, node.theta > node.value_top)
+                self.input.cache[node.state] = Threshold(node.theta, node.value_top)
             for arc in node.arcs:
                 arc.parent.theta = min(arc.parent.theta, node.theta - arc.reward)
     
@@ -288,11 +290,10 @@ class Diagram:
         self.relaxed = input.relaxed
         self.cutset_nodes = []
 
-        input.root.cutset = False
-
         self.used_dominance = False
         self.used_cache = False
         self.used_cache_larger = False
+        self.used_cache_pruning = False
         self.used_rub = False
         self.used_locb = False
 
@@ -304,10 +305,11 @@ class Diagram:
             self.layers.append(self.layers[-1].next())
 
             if depth > self.input.root.depth and depth + 1 < self.input.model.nb_variables():
-                self.used_dominance |= self.layers[-1].filter_with_dominance()
-                (used_cache, used_cache_larger) = self.layers[-1].filter_with_cache()
+                (used_cache, used_cache_larger, used_cache_pruning) = self.layers[-1].filter_with_cache()
                 self.used_cache |= used_cache
                 self.used_cache_larger |= used_cache_larger
+                self.used_cache_pruning |= used_cache_pruning
+                self.used_dominance |= self.layers[-1].filter_with_dominance()
                 self.used_rub |= self.layers[-1].filter_with_rub()
 
             if depth > self.input.root.depth and depth + 1 < self.input.model.nb_variables() and self.layers[-1].width() > self.input.settings.width:
@@ -388,6 +390,7 @@ class Diagram:
         return ret
     
 class Threshold:
-    def __init__(self, theta, larger):
+    def __init__(self, theta, value_top, pruning=False):
         self.theta = theta
-        self.larger = larger
+        self.value_top = value_top
+        self.pruning = pruning
