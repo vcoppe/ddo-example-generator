@@ -1,29 +1,41 @@
 import math
 
+USE_LP_BOUND = False
+
 class KnapsackInstance:
-    def __init__(self, n, c, w, v):
+    def __init__(self, n, c, w, v, q):
         self.n = n
         self.c = c
 
-        r = [(v[i] / w[i], v[i], w[i]) for i in range(n)]
-        r.sort(reverse=True)
+        r = [(v[i] / w[i], v[i], w[i], q[i]) for i in range(n)]
+
+        if USE_LP_BOUND:
+            r.sort(reverse=True)
 
         self.v = [r[i][1] for i in range(n)]
         self.w = [r[i][2] for i in range(n)]
+        self.q = [r[i][3] for i in range(n)]
     
     def __str__(self):
-        return "instance<n=" + str(self.n) + ",c=" + str(self.c) + ",v=" + str(self.v) + ",w=" + str(self.w) + ">"
+        return "instance<n=" + str(self.n) + ",c=" + str(self.c) + ",v=" + str(self.v) + ",w=" + str(self.w) + ",q=" + str(self.q) + ">"
     
     def random(n, rand):
-        c = n * 5 // 2
+        alpha = 6
+        beta = 2
+
+        c = n * alpha // beta
         v = []
         w = []
+        q = [1 + i % 2 for i in range(n)]
+        q[-1] = rand.randint(1, 2)
+
+        rand.shuffle(q)
 
         for _ in range(n):
-            v.append(rand.randint(1, 6))
-            w.append(rand.randint(1, 6))
+            v.append(rand.randint(1, alpha))
+            w.append(rand.randint(1, alpha))
         
-        return KnapsackInstance(n, c, w, v)
+        return KnapsackInstance(n, c, w, v, q)
 
 class KnapsackState:
     def __init__(self, capa, depth):
@@ -53,7 +65,7 @@ class KnapsackModel:
         return KnapsackState(self.instance.c, 0)
 
     def domain(self, state, variable):
-        return [0, 1]
+        return range(self.instance.q[variable] + 1)
     
     def successor(self, state, decision):
         capa = state.capa - decision * self.instance.w[state.depth]
@@ -69,15 +81,27 @@ class KnapsackModel:
         a.depth = max(a.depth, b.depth)
     
     def rough_upper_bound(self, state):
+        if USE_LP_BOUND:
+            return self.lp_bound(state)
+        else:
+            return self.simple_bound(state)
+    
+    def lp_bound(self, state): # needs the items to be sorted by decreasing v/w ratio
         capa = state.capa
         rub = 0
         for depth in range(state.depth, self.instance.n):
-            if self.instance.w[depth] <= capa:
-                capa -= self.instance.w[depth]
-                rub += self.instance.v[depth]
+            if self.instance.w[depth] * self.instance.q[depth] <= capa:
+                capa -= self.instance.w[depth] * self.instance.q[depth]
+                rub += self.instance.v[depth] * self.instance.q[depth]
             else:
                 rub += int(math.floor(capa * self.instance.v[depth] / self.instance.w[depth]))
                 break
+        return rub
+
+    def simple_bound(self, state):
+        rub = 0
+        for depth in range(state.depth, self.instance.n):
+            rub += self.instance.v[depth] * self.instance.q[depth]
         return rub
 
 class KnapsackDominance:

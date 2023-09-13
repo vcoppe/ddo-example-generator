@@ -41,25 +41,22 @@ class Solver:
             if self.input.root.ub <= self.input.best:
                 continue
 
+            if settings is not None and it < len(settings):
+                self.input.settings = settings[it]
+                it += 1
+
             self.input.relaxed = False
 
-            if settings is not None and it < len(settings):
-                self.input.settings = settings[it]
-                it += 1
+            if it == 1:
+                restricted = Diagram(self.input)
+                self.dds.append(restricted)
 
-            restricted = Diagram(self.input)
-            self.dds.append(restricted)
+                self.update_best(restricted)
 
-            self.update_best(restricted)
-
-            if restricted.is_exact():
-                continue
+                if restricted.is_exact():
+                    continue
 
             self.input.relaxed = True
-
-            if settings is not None and it < len(settings):
-                self.input.settings = settings[it]
-                it += 1
 
             relaxed = Diagram(self.input)
             self.dds.append(relaxed)
