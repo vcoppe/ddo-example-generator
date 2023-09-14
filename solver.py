@@ -30,12 +30,13 @@ class Solver:
         if best is not None and best > self.input.best:
             self.input.best = best
 
-
-    def solve(self, settings=None):
-        it = 0
+    def solve(self, settings=None, restricted_its=None):
+        it = -1
         self.enqueue(Node(self.input.model.root()))
 
         while not self.finished():
+            it += 1
+
             self.input.root = self.dequeue()
 
             if self.input.root.ub <= self.input.best:
@@ -43,11 +44,10 @@ class Solver:
 
             if settings is not None and it < len(settings):
                 self.input.settings = settings[it]
-                it += 1
 
             self.input.relaxed = False
 
-            if it == 1:
+            if restricted_its is None or it in restricted_its:
                 restricted = Diagram(self.input)
                 self.dds.append(restricted)
 

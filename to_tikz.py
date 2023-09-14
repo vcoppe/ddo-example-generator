@@ -37,9 +37,16 @@ def main():
         setting = settings[i]
 
         solver = Solver(model, dominance_rule, None)
-        solver.solve(setting)
+        solver.solve(setting, [0])
 
         all_dds.append(solver.dds)
+
+    setting = settings[0]
+
+    solver = Solver(model, dominance_rule, None)
+    solver.solve(setting, [0, 1])
+
+    all_dds.append(solver.dds)
         
     Tikz(all_dds[0][0], state_fmt=state_fmt).convert("root_restricted")
     Tikz(all_dds[0][1], state_fmt=state_fmt, show_thresholds=False).convert("root_relaxed")
@@ -52,6 +59,9 @@ def main():
 
     Tikz(all_dds[2][2], state_fmt=state_fmt).convert("cutset_relaxed_1_dominance")
     Tikz(all_dds[2][3], state_fmt=state_fmt).convert("cutset_relaxed_2_dominance")
+
+    Tikz(all_dds[3][2], state_fmt=state_fmt, node_vertical_spacing=1.5).convert("cutset_restricted_1_bab")
+    Tikz(all_dds[3][3], state_fmt=state_fmt, node_vertical_spacing=1.5, show_thresholds=False).convert("cutset_relaxed_1_bab")
 
 if __name__ == "__main__":
     main() 
