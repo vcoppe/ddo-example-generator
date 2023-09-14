@@ -150,20 +150,18 @@ class Layer:
                 cmp = self.input.dominance_rule.check(node.state, others[j].state)
                 if cmp == 0:
                     if self.input.dominance_rule.use_value():
-                        if node.value_top > others[j].value_top:
+                        if node.value_top >= others[j].value_top:
                             del others[j]
-                        elif node.value_top < others[j].value_top:
-                            node.theta = others[j].value_top
+                        else:
+                            node.theta = others[j].value_top - 1
                             node.deleted_by_dominance = True
-                            self.deleted_by_hint = others[j]
+                            node.deleted_by_hint = others[j]
                             self.deleted_by_dominance.append(node)
                             del self.nodes[node.state]
                             dominated = True
                             break
-                        else:
-                            j += 1
                     else:
-                        j += 1
+                        del others[j]
                 elif cmp > 0:
                     if self.input.dominance_rule.use_value():
                         if node.value_top >= others[j].value_top:
@@ -175,9 +173,9 @@ class Layer:
                 elif cmp < 0:
                     if self.input.dominance_rule.use_value():
                         if node.value_top <= others[j].value_top:
-                            node.theta = others[j].value_top + 1
+                            node.theta = others[j].value_top
                             node.deleted_by_dominance = True
-                            self.deleted_by_hint = others[j]
+                            node.deleted_by_hint = others[j]
                             self.deleted_by_dominance.append(node)
                             del self.nodes[node.state]
                             dominated = True
@@ -187,7 +185,7 @@ class Layer:
                     else:
                         node.theta = math.inf
                         node.deleted_by_dominance = True
-                        self.deleted_by_hint = others[j]
+                        node.deleted_by_hint = others[j]
                         self.deleted_by_dominance.append(node)
                         del self.nodes[node.state]
                         dominated = True
@@ -210,7 +208,7 @@ class Layer:
             if threshold is not None and node.value_top <= threshold.theta:
                 node.theta = threshold.theta
                 node.deleted_by_cache = True
-                self.deleted_by_hint = threshold.theta
+                node.deleted_by_hint = threshold.theta
                 self.deleted_by_cache.append(node)
                 del self.nodes[node.state]
                 used = True
@@ -227,7 +225,7 @@ class Layer:
             if node.value_top + node.rub <= self.input.best:
                 node.theta = self.input.best - node.rub
                 node.deleted_by_rub = True
-                self.deleted_by_hint = self.input.best
+                node.deleted_by_hint = self.input.best
                 self.deleted_by_rub.append(node)
                 del self.nodes[node.state]
                 used = True
@@ -251,7 +249,7 @@ class Layer:
             if node.cutset and node.value_top + node.value_bot <= self.input.best:
                 node.theta = self.input.best - node.value_bot
                 node.deleted_by_local_bounds = True
-                self.deleted_by_hint = self.input.best
+                node.deleted_by_hint = self.input.best
                 self.deleted_by_local_bounds.append(node)
                 del self.nodes[node.state]
                 used = True
