@@ -49,19 +49,42 @@ def main():
     all_dds.append(solver.dds)
         
     Tikz(all_dds[0][0], state_fmt=state_fmt).convert("root_restricted")
-    Tikz(all_dds[0][1], state_fmt=state_fmt, show_thresholds=False).convert("root_relaxed")
+    Tikz(all_dds[0][1], state_fmt=state_fmt, show_thresholds=False, node_labels={
+        KnapsackState(15, 1): "a_1",
+        KnapsackState(11, 1): "a_2",
+    }).convert("root_relaxed")
 
-    Tikz(all_dds[0][2], state_fmt=state_fmt).convert("cutset_relaxed_1")
-    Tikz(all_dds[0][3], state_fmt=state_fmt).convert("cutset_relaxed_2")
+    Tikz(all_dds[0][2], state_fmt=state_fmt, node_labels={
+        KnapsackState(11, 1): "a_2",
+        KnapsackState(1, 3): "c_3",
+    }).convert("cutset_relaxed_1")
+    Tikz(all_dds[0][3], state_fmt=state_fmt, node_labels={
+        KnapsackState(15, 1): "a_1",
+        KnapsackState(1, 3): "c_4",
+    }).convert("cutset_relaxed_2")
 
-    Tikz(all_dds[1][2], state_fmt=state_fmt).convert("cutset_relaxed_1_pruning")
-    Tikz(all_dds[1][3], state_fmt=state_fmt).convert("cutset_relaxed_2_pruning")
+    Tikz(all_dds[1][2], state_fmt=state_fmt, node_labels={
+        KnapsackState(11, 1): "a_2",
+        KnapsackState(11, 3): "c_1",
+    }).convert("cutset_relaxed_1_pruning")
+    Tikz(all_dds[1][3], state_fmt=state_fmt, node_labels={
+        KnapsackState(15, 1): "a_1",
+        KnapsackState(11, 3): "c_2",
+    }).convert("cutset_relaxed_2_pruning")
 
-    Tikz(all_dds[2][2], state_fmt=state_fmt).convert("cutset_relaxed_1_dominance")
-    Tikz(all_dds[2][3], state_fmt=state_fmt).convert("cutset_relaxed_2_dominance")
+    Tikz(all_dds[2][2], state_fmt=state_fmt, node_labels={
+        KnapsackState(11, 1): "a_2",
+    }).convert("cutset_relaxed_1_dominance")
+    Tikz(all_dds[2][3], state_fmt=state_fmt, node_labels={
+        KnapsackState(15, 1): "a_1",
+    }).convert("cutset_relaxed_2_dominance")
 
-    Tikz(all_dds[3][2], state_fmt=state_fmt, node_vertical_spacing=1.5).convert("cutset_restricted_1_bab")
-    Tikz(all_dds[3][3], state_fmt=state_fmt, node_vertical_spacing=1.5, show_thresholds=False).convert("cutset_relaxed_1_bab")
+    Tikz(all_dds[3][2], state_fmt=state_fmt, node_vertical_spacing=1.5, node_labels={
+        KnapsackState(11, 1): "a_2",
+    }).convert("cutset_restricted_1_bab")
+    Tikz(all_dds[3][3], state_fmt=state_fmt, node_vertical_spacing=1.5, show_thresholds=False, node_labels={
+        KnapsackState(11, 1): "a_2",
+    }).convert("cutset_relaxed_1_bab")
 
 if __name__ == "__main__":
     main() 

@@ -4,7 +4,7 @@ import sane_tikz.formatting as fmt
 import math
 
 class Tikz:
-    def __init__(self, dd, show_locbs=True, show_thresholds=True, text_style=r"font=\scriptsize", opt_style=fmt.line_width(2 * fmt.standard_line_width), cutset_style=fmt.line_width(2 * fmt.standard_line_width), relaxed_style=fmt.fill_color("black!10"), ub_style=fmt.text_color("black!50"), arc_style=r"-{Straight Barb[length=3pt,width=4pt]}", node_radius=0.25, annotation_horizontal_spacing=0.25, annotation_vertical_spacing=0.2, pruning_info_vertical_spacing=0.5, node_horizontal_spacing=2, node_vertical_spacing=2, max_nodes=5, state_fmt=lambda x: x):
+    def __init__(self, dd, show_locbs=True, show_thresholds=True, text_style=r"font=\scriptsize", opt_style=fmt.line_width(2 * fmt.standard_line_width), cutset_style=fmt.line_width(2 * fmt.standard_line_width), relaxed_style=fmt.fill_color("black!10"), ub_style=fmt.text_color("black!50"), arc_style=r"-{Straight Barb[length=3pt,width=4pt]}", node_radius=0.25, annotation_horizontal_spacing=0.25, annotation_vertical_spacing=0.2, pruning_info_vertical_spacing=0.5, node_horizontal_spacing=2, node_vertical_spacing=2, max_nodes=5, state_fmt=lambda x: x, node_labels=dict()):
         self.dd = dd
         self.nodes = [dict() for _ in range(dd.input.model.nb_variables() + 1)]
 
@@ -27,6 +27,8 @@ class Tikz:
         self.max_nodes = max_nodes
 
         self.state_fmt = state_fmt
+
+        self.node_labels = node_labels
 
     def node(self, node):
         node_elems = dict()
@@ -125,6 +127,13 @@ class Tikz:
                 stz.translate_coords_vertically(node_elems["state"]["cs"], - self.pruning_info_vertical_spacing),
                 text,
                 fmt.combine_tikz_strs([r"font=\tiny", "draw", "inner sep=1pt", fmt.fill_color("white")])
+            )
+        
+        if node.state in self.node_labels:
+            node_elems["label"] = stz.latex(
+                stz.translate_coords_horizontally(node_elems["state"]["cs"], self.annotation_horizontal_spacing),
+                r"$" + "{label}".format(label=self.node_labels[node.state]) + r"$",
+                fmt.combine_tikz_strs([self.text_style, fmt.anchor("left_center")])
             )
 
         return list(node_elems.values())
