@@ -4,9 +4,10 @@ import sane_tikz.formatting as fmt
 import math
 
 class Tikz:
-    def __init__(self, dd, show_locbs=True, show_thresholds=True, text_style=r"font=\scriptsize", opt_style=fmt.line_width(2 * fmt.standard_line_width), cutset_style=fmt.line_width(2 * fmt.standard_line_width), relaxed_style=fmt.fill_color("black!10"), ub_style=fmt.text_color("black!50"), arc_style=r"-{Straight Barb[length=3pt,width=4pt]}", node_radius=0.25, annotation_horizontal_spacing=0.25, annotation_vertical_spacing=0.2, pruning_info_vertical_spacing=0.5, node_horizontal_spacing=2, node_vertical_spacing=2, max_nodes=5, state_fmt=lambda x: x, node_labels=dict()):
+    def __init__(self, dd, show_locbs=True, show_thresholds=True, text_style=r"font=\scriptsize", opt_style=fmt.line_width(2 * fmt.standard_line_width), cutset_style=fmt.line_width(2 * fmt.standard_line_width), relaxed_style=fmt.fill_color("black!10"), ub_style=fmt.text_color("black!50"), arc_style=r"-{Straight Barb[length=3pt,width=4pt]}", node_radius=0.25, annotation_horizontal_spacing=0.25, annotation_vertical_spacing=0.22, pruning_info_vertical_spacing=0.5, node_horizontal_spacing=2, node_vertical_spacing=2, max_nodes=5, state_fmt=lambda x: x, node_labels=dict(), node_label_style=r"font=\large", legend=None, arcs_sep_angle=75, arc_positions=dict()):
         self.dd = dd
         self.nodes = [dict() for _ in range(dd.input.model.nb_variables() + 1)]
+        self.others = []
 
         self.show_locbs = show_locbs
         self.show_thresholds = show_thresholds
@@ -17,6 +18,7 @@ class Tikz:
         self.relaxed_style = relaxed_style
         self.ub_style = ub_style
         self.arc_style = arc_style
+        self.node_label_style = node_label_style
 
         self.node_radius = node_radius
         self.annotation_horizontal_spacing = annotation_horizontal_spacing
@@ -25,10 +27,13 @@ class Tikz:
         self.node_horizontal_spacing = node_horizontal_spacing
         self.node_vertical_spacing = node_vertical_spacing
         self.max_nodes = max_nodes
+        self.arcs_sep_angle = arcs_sep_angle
 
         self.state_fmt = state_fmt
 
         self.node_labels = node_labels
+        self.arc_positions = arc_positions
+        self.legend = legend
 
     def node(self, node):
         node_elems = dict()
@@ -90,10 +95,9 @@ class Tikz:
         # pruning info
         if node.deleted_by_rub or node.deleted_by_local_bounds or node.deleted_by_cache or node.deleted_by_dominance:
             bbox = stz.bbox(node_elems["circle"])
-            node_elems["cross"] = [
-                stz.line_segment(bbox[0], bbox[1], "densely dotted"),
-                stz.line_segment([bbox[0][0], bbox[1][1]], [bbox[1][0], bbox[0][1]], "densely dotted")
-            ]
+            node_elems["cross1"] = stz.line_segment(bbox[0], bbox[1], fmt.combine_tikz_strs(["dash pattern=on 2pt off 1pt", fmt.line_width(1.5 * fmt.standard_line_width)]))
+            node_elems["cross2"] = stz.line_segment([bbox[0][0], bbox[1][1]], [bbox[1][0], bbox[0][1]], fmt.combine_tikz_strs(["dash pattern=on 2pt off 1pt", fmt.line_width(1.5 * fmt.standard_line_width)]))
+
             text = ""
             if node.deleted_by_rub:
                 text = r"$" + \
@@ -133,10 +137,8 @@ class Tikz:
             node_elems["label"] = stz.latex(
                 stz.translate_coords_horizontally(node_elems["state"]["cs"], self.annotation_horizontal_spacing),
                 r"$" + "{label}".format(label=self.node_labels[node.state]) + r"$",
-                fmt.combine_tikz_strs([self.text_style, fmt.anchor("left_center")])
+                fmt.combine_tikz_strs([self.node_label_style, fmt.anchor("left_center")])
             )
-
-        return list(node_elems.values())
     
     def node_arcs(self, node):
         to_elems = self.nodes[node.depth][node.state]
@@ -149,7 +151,7 @@ class Tikz:
                 arcs_by_parent[arc.parent.state] = []
             arcs_by_parent[arc.parent.state].append(arc)
 
-        e_lst = []
+        cnt = 0
         for arcs in arcs_by_parent.values():
             parent = arcs[0].parent
 
@@ -166,7 +168,7 @@ class Tikz:
             delta = 0
 
             #if len(arcs) > 1:
-            delta = 75 * math.pow(math.sin(stz.degrees_to_radians(out_angle)), 2) / len(arcs)
+            delta = self.arcs_sep_angle * math.pow(math.sin(stz.degrees_to_radians(out_angle)), 2) / len(arcs)
             alpha = - (out_angle - 270) * math.fabs(math.cos(stz.degrees_to_radians(out_angle))) * 0.2 #- (out_angle - 270) * 0.1
             alpha -= delta * (len(arcs) - 1) / 2
 
@@ -177,8 +179,12 @@ class Tikz:
                 from_cs_bezier = stz.coords_on_circle(from_cs, from_circle["radius"], out_angle)
                 to_cs_bezier = stz.coords_on_circle(to_cs, to_circle["radius"], in_angle)
 
+                position = .35
+                if (parent.state, node.state) in self.arc_positions:
+                    position = self.arc_positions[(parent.state, node.state)]
+
                 decoration = r"postaction={decorate, decoration={" \
-                    + r"markings, mark=at position .35 with { \node[" \
+                    + r"markings, mark=at position " + str(position) + r" with { \node[" \
                     + fmt.combine_tikz_strs([self.text_style, "circle", fmt.fill_color("white"), "inner sep=0.5pt"]) \
                     + r"]{" \
                     + str(arc.reward) \
@@ -187,14 +193,13 @@ class Tikz:
                 line_style = [self.arc_style, decoration]
                 if arc.opt:
                     line_style.append(self.opt_style)
-                e_lst.append(stz.bezier_with_symmetric_relative_angle_midway_controls(
+                to_elems["arcs" + str(cnt)] = stz.bezier_with_symmetric_relative_angle_midway_controls(
                     from_cs_bezier, to_cs_bezier, alpha, 
                     fmt.combine_tikz_strs(list(reversed(line_style)))
-                ))
+                )
 
                 alpha += delta
-
-        return e_lst
+                cnt += 1
 
     def layer(self, layer):
         nodes = self.get_layer_nodes(layer)
@@ -213,32 +218,29 @@ class Tikz:
             spacing = (self.max_nodes - 1) * self.node_horizontal_spacing / (len(e_lst) - 1)
         stz.distribute_centers_horizontally_with_spacing(e_lst, spacing)
 
+        if len(e_lst) == 0:
+            dummy_node = stz.circle([0, 0], self.node_radius, fmt.line_color("white"))
+            self.others.append(dummy_node)
+            e_lst.append(dummy_node)
+
         return e_lst
     
     def layer_annotations(self, layer):
         # add annotations once nodes they are correctly placed
-        e_lst = []
         for node in self.get_layer_nodes(layer):
-            e_lst.append(self.node_annotations(node))
-
-        return e_lst
+            self.node_annotations(node)
     
     def layer_arcs(self, layer):
         # add annotations once nodes they are correctly placed
-        e_lst = []
         for node in self.get_layer_nodes(layer):
-            arcs = self.node_arcs(node)
-            if len(arcs) > 0:
-                e_lst.append(arcs)
-
-        return e_lst
+            self.node_arcs(node)
     
     def get_layer_nodes(self, layer):
         # get all nodes, even the pruned ones
         groups = [list(layer.nodes.values()), layer.deleted_by_dominance, layer.deleted_by_cache, layer.deleted_by_rub, layer.deleted_by_local_bounds]
         return [node for group in groups for node in group]
-
-    def convert(self, name):
+    
+    def layers(self):
         e_lst = []
 
         # create nodes of each layer
@@ -251,18 +253,40 @@ class Tikz:
         stz.distribute_centers_vertically_with_spacing(e_lst, self.node_vertical_spacing)
         stz.align_centers_horizontally(e_lst, 0)
 
+    def bottom_legend(self):
+        if self.legend is not None:
+            l = stz.latex([0, 0], self.legend)
+            stz.place_below_and_align_to_the_center(l, self.get_e_lst(), self.node_vertical_spacing / 3)
+            self.others.append(l)
+
+    def get_e_lst(self):
+        e_lst = [e for layer in self.nodes for node_elems in layer.values() for e in node_elems.values()]
+        e_lst.extend(self.others)
+        e_lst.sort(key=lambda e: e["type"])
+        return e_lst
+
+    def diagram(self):
+        # create all layers and distribute them correcly
+        self.layers()
+
         # add arcs once nodes are correctly placed
         for layer in self.dd.layers:
-            arcs = self.layer_arcs(layer)
-            if len(arcs) > 0:
-                e_lst.append(arcs)
+            self.layer_arcs(layer)
 
         # add node annotations
         for layer in self.dd.layers:
-            annotations = self.layer_annotations(layer)
-            if len(annotations) > 0:
-                e_lst.append(annotations)
+            self.layer_annotations(layer)
 
+        # add legend
+        self.bottom_legend()
+
+        return self.get_e_lst()
+    
+    def combine(e_lst, spacing=1.5):
+        stz.distribute_horizontally_with_spacing(e_lst, spacing)
+        return e_lst
+
+    def to_file(e_lst, name):
         # create tex file
         file =  "out/{}.tex".format(name)
         stz.draw_to_tikz_standalone(e_lst, file)
