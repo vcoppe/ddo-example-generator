@@ -4,7 +4,7 @@ import sane_tikz.formatting as fmt
 import math
 
 class Tikz:
-    def __init__(self, dd, show_locbs=True, show_thresholds=True, text_style=r"font=\scriptsize", opt_style=fmt.line_width(2 * fmt.standard_line_width), cutset_style=fmt.line_width(2 * fmt.standard_line_width), relaxed_style=fmt.fill_color("black!10"), ub_style=fmt.text_color("black!50"), arc_style=r"-{Straight Barb[length=3pt,width=4pt]}", node_radius=0.25, annotation_horizontal_spacing=0.25, annotation_vertical_spacing=0.2, node_horizontal_spacing=2, node_vertical_spacing=2, max_nodes=5, state_fmt=lambda x: x):
+    def __init__(self, dd, show_locbs=True, show_thresholds=True, text_style=r"font=\scriptsize", opt_style=fmt.line_width(2 * fmt.standard_line_width), cutset_style=fmt.line_width(2 * fmt.standard_line_width), relaxed_style=fmt.fill_color("black!10"), ub_style=fmt.text_color("black!50"), arc_style=r"-{Straight Barb[length=3pt,width=4pt]}", node_radius=0.25, annotation_horizontal_spacing=0.25, annotation_vertical_spacing=0.2, pruning_info_vertical_spacing=0.5, node_horizontal_spacing=2, node_vertical_spacing=2, max_nodes=5, state_fmt=lambda x: x):
         self.dd = dd
         self.nodes = [dict() for _ in range(dd.input.model.nb_variables() + 1)]
 
@@ -21,6 +21,7 @@ class Tikz:
         self.node_radius = node_radius
         self.annotation_horizontal_spacing = annotation_horizontal_spacing
         self.annotation_vertical_spacing = annotation_vertical_spacing
+        self.pruning_info_vertical_spacing = pruning_info_vertical_spacing
         self.node_horizontal_spacing = node_horizontal_spacing
         self.node_vertical_spacing = node_vertical_spacing
         self.max_nodes = max_nodes
@@ -42,14 +43,6 @@ class Tikz:
 
         # state text
         node_elems["state"] = stz.latex([0, 0], self.state_fmt(node.state), self.text_style)
-
-        # pruning info
-        if node.deleted_by_rub or node.deleted_by_local_bounds or node.deleted_by_cache or node.deleted_by_dominance:
-            bbox = stz.bbox(node_elems["circle"])
-            node_elems["cross"] = [
-                stz.line_segment(bbox[0], bbox[1], "densely dashed"),
-                stz.line_segment([bbox[0][0], bbox[1][1]], [bbox[1][0], bbox[0][1]], "densely dashed")
-            ]
 
         # record elements in hashmap
         self.nodes[node.depth][node.state] = node_elems
@@ -88,6 +81,48 @@ class Tikz:
             e_lst.insert(0, node_elems["theta"])
             stz.distribute_vertically_with_spacing(e_lst, self.annotation_vertical_spacing)
             stz.align_centers_vertically([e_lst], node_elems["state"]["cs"][1])
+
+        # pruning info
+        if node.deleted_by_rub or node.deleted_by_local_bounds or node.deleted_by_cache or node.deleted_by_dominance:
+            bbox = stz.bbox(node_elems["circle"])
+            node_elems["cross"] = [
+                stz.line_segment(bbox[0], bbox[1], "densely dotted"),
+                stz.line_segment([bbox[0][0], bbox[1][1]], [bbox[1][0], bbox[0][1]], "densely dotted")
+            ]
+            text = ""
+            if node.deleted_by_rub:
+                text = r"$" + \
+                        r"\mathbf{" + "{value_top}".format(value_top=node.value_top) + r"} + " + \
+                        r"{\color{black!50}" + "{rub}".format(rub=node.rub) + r"} \le " + \
+                        "{best}".format(best=node.deleted_by_hint) + \
+                        "$"
+            if node.deleted_by_local_bounds:
+                text = r"$" + \
+                        r"\mathbf{" + "{value_top}".format(value_top=node.value_top) + r"} + " + \
+                        r"{\color{black!50}" + "{value_bot}".format(value_bot=node.value_bot) + r"} \le " + \
+                        "{best}".format(best=node.deleted_by_hint) + \
+                        "$"
+            if node.deleted_by_cache:
+                text = r"$" + \
+                        r"\mathbf{" + "{value_top}".format(value_top=node.value_top) + r"} \le " + \
+                        "{theta}".format(theta=node.deleted_by_hint) + \
+                        "$"
+            if node.deleted_by_dominance:
+                if self.dd.input.dominance_rule.use_value():
+                    text = r"$(\mathbf{" + "{value_top}".format(value_top=node.value_top) + r"}," + \
+                            "{state}".format(state=self.state_fmt(node.state)) + r") \prec " + \
+                            r"(\mathbf{" + "{value_top}".format(value_top=node.deleted_by_hint.value_top) + r"}," + \
+                            "{state}".format(state=self.state_fmt(node.deleted_by_hint.state)) + r") " + \
+                            "$"
+                else:
+                    text = "${state}".format(state=self.state_fmt(node.state)) + r" \prec " + \
+                            "{state}$".format(state=self.state_fmt(node.deleted_by_hint.state))
+
+            node_elems["pruning"] = stz.latex(
+                stz.translate_coords_vertically(node_elems["state"]["cs"], - self.pruning_info_vertical_spacing),
+                text,
+                fmt.combine_tikz_strs([r"font=\tiny", "draw", "inner sep=1pt", fmt.fill_color("white")])
+            )
 
         return list(node_elems.values())
     
@@ -204,17 +239,17 @@ class Tikz:
         stz.distribute_centers_vertically_with_spacing(e_lst, self.node_vertical_spacing)
         stz.align_centers_horizontally(e_lst, 0)
 
-        # add node annotations once nodes are correctly placed
-        for layer in self.dd.layers:
-            annotations = self.layer_annotations(layer)
-            if len(annotations) > 0:
-                e_lst.append(annotations)
-
-        # add arcs
+        # add arcs once nodes are correctly placed
         for layer in self.dd.layers:
             arcs = self.layer_arcs(layer)
             if len(arcs) > 0:
                 e_lst.append(arcs)
+
+        # add node annotations
+        for layer in self.dd.layers:
+            annotations = self.layer_annotations(layer)
+            if len(annotations) > 0:
+                e_lst.append(annotations)
 
         # create tex file
         file =  "out/{}.tex".format(name)
