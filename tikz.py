@@ -4,7 +4,7 @@ import sane_tikz.formatting as fmt
 import math
 
 class Tikz:
-    def __init__(self, dd, show_locbs=True, show_thresholds=True, text_style=r"font=\scriptsize", node_radius=0.25, annotation_horizontal_spacing=0.25, annotation_vertical_spacing=0.2, node_horizontal_spacing=2, node_vertical_spacing=2, max_nodes=5, state_fmt=lambda x: x):
+    def __init__(self, dd, show_locbs=True, show_thresholds=True, text_style=r"font=\scriptsize", opt_style=fmt.line_width(2 * fmt.standard_line_width), cutset_style=fmt.line_width(2 * fmt.standard_line_width), relaxed_style=fmt.fill_color("black!10"), ub_style=fmt.text_color("black!50"), arc_style=r"-{Straight Barb[length=3pt,width=4pt]}", node_radius=0.25, annotation_horizontal_spacing=0.25, annotation_vertical_spacing=0.2, node_horizontal_spacing=2, node_vertical_spacing=2, max_nodes=5, state_fmt=lambda x: x):
         self.dd = dd
         self.nodes = [dict() for _ in range(dd.input.model.nb_variables() + 1)]
 
@@ -12,6 +12,11 @@ class Tikz:
         self.show_thresholds = show_thresholds
 
         self.text_style = text_style
+        self.opt_style = opt_style
+        self.cutset_style = cutset_style
+        self.relaxed_style = relaxed_style
+        self.ub_style = ub_style
+        self.arc_style = arc_style
 
         self.node_radius = node_radius
         self.annotation_horizontal_spacing = annotation_horizontal_spacing
@@ -28,11 +33,11 @@ class Tikz:
         # create circle with different formatting depending on flags
         style = fmt.fill_color("white")
         if node.cutset and node.depth < self.dd.input.model.nb_variables():
-            style = fmt.combine_tikz_strs([style, fmt.line_width(2 * fmt.standard_line_width)])
+            style = fmt.combine_tikz_strs([style, self.cutset_style])
         if node.merged:
             node_elems["circle2"] = stz.circle([0, 0], self.node_radius * 1.15, style)
         if node.relaxed:
-            style = fmt.fill_color("black!10")
+            style = self.relaxed_style
         node_elems["circle"] = stz.circle([0, 0], self.node_radius, style)
 
         # state text
@@ -65,7 +70,7 @@ class Tikz:
             node_elems["value_bot"] = stz.latex(
                 stz.translate_coords_horizontally(node_elems["state"]["cs"], - self.annotation_horizontal_spacing),
                 "{value_bot}".format(value_bot=(r"$-\infty$" if node.value_bot == -math.inf else node.value_bot)),
-                fmt.combine_tikz_strs([self.text_style, fmt.text_color("black!50"), fmt.anchor("right_center")])
+                fmt.combine_tikz_strs([self.text_style, self.ub_style, fmt.anchor("right_center")])
             )
             stz.distribute_vertically_with_spacing([node_elems["value_bot"], node_elems["value_top"]], self.annotation_vertical_spacing)
             stz.align_centers_vertically([[node_elems["value_bot"], node_elems["value_top"]]], node_elems["state"]["cs"][1])
@@ -132,9 +137,12 @@ class Tikz:
                     + str(arc.reward) \
                     + r"}; }}}"
 
+                line_style = [self.arc_style, decoration]
+                if arc.opt:
+                    line_style.append(self.opt_style)
                 e_lst.append(stz.bezier_with_symmetric_relative_angle_midway_controls(
                     from_cs_bezier, to_cs_bezier, alpha, 
-                    fmt.combine_tikz_strs([fmt.arrow_heads("end"), decoration, fmt.line_width(fmt.standard_line_width * (2 if arc.opt else 1))])
+                    fmt.combine_tikz_strs(list(reversed(line_style)))
                 ))
 
                 alpha += delta
