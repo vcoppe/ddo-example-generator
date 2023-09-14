@@ -44,6 +44,9 @@ class KnapsackState:
 
     def clone(self):
         return KnapsackState(self.capa, self.depth)
+    
+    def __lt__(self, other): # used only for tikz output
+        return self.capa > other.capa
 
     def __hash__(self):
         return hash((self.capa, self.depth))

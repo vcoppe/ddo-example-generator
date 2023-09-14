@@ -17,12 +17,14 @@ class CompilationInput:
         self.settings = settings
 
 class Arc:
-    def __init__(self, parent, reward):
+    def __init__(self, parent, reward, decision):
         self.parent = parent
         self.reward = reward
+        self.decision = decision
+        self.opt = False
         
 class Node:
-    def __init__(self, state, depth=0, value_top=0, arc=None, relaxed=False, ub=math.inf):
+    def __init__(self, state, depth=0, value_top=0, arc=None, relaxed=False, merged=False, ub=math.inf):
         self.state = state
         self.depth = depth
         self.value_top = value_top
@@ -34,8 +36,14 @@ class Node:
         if arc is not None:
             self.arcs.append(arc)
         self.relaxed = relaxed
+        self.merged = merged
         self.cutset = False
         self.above_cutset = False
+        self.deleted_by_rub = False
+        self.deleted_by_local_bounds = False
+        self.deleted_by_cache = False
+        self.deleted_by_dominance = False
+        self.deleted_by_hint = None
 
     def __lt__(self, other):
         return self.ub > other.ub
@@ -69,7 +77,7 @@ class Layer:
                 if state is None:
                     continue
                 reward = self.input.model.reward(node.state, decision)
-                next.insert(Node(state, next.depth, node.value_top + reward, Arc(node, reward), node.relaxed))
+                next.insert(Node(state, next.depth, node.value_top + reward, Arc(node, reward, decision), node.relaxed))
         return next
 
     def insert(self, node):
@@ -96,12 +104,20 @@ class Layer:
     
     def relax(self, order):
         relax_start = self.input.settings.width - 1
-        self.relax_helper(order[relax_start:], Node(order[relax_start].state.clone(), order[relax_start].depth, relaxed=True))
+        self.relax_helper(order[relax_start:], Node(order[relax_start].state.clone(), order[relax_start].depth, relaxed=True, merged=True))
     
     def finalize(self):
         nodes = list(self.nodes.values())
-        if len(nodes) > 0:
+        if self.width() > 0:
             self.relax_helper(nodes, Node(nodes[0].state.clone(), nodes[0].depth, relaxed=False))
+        
+            current = next(iter(self.nodes.values()))
+            while len(current.arcs) > 0:
+                for arc in current.arcs:
+                    if arc.parent.value_top + arc.reward == current.value_top:
+                        arc.opt = True
+                        current = arc.parent
+                        break
     
     def relax_helper(self, to_merge, merged):
         for node in to_merge:
@@ -138,6 +154,8 @@ class Layer:
                             del others[j]
                         elif node.value_top < others[j].value_top:
                             node.theta = others[j].value_top
+                            node.deleted_by_dominance = True
+                            self.deleted_by_hint = others[j]
                             self.deleted_by_dominance.append(node)
                             del self.nodes[node.state]
                             dominated = True
@@ -158,6 +176,8 @@ class Layer:
                     if self.input.dominance_rule.use_value():
                         if node.value_top <= others[j].value_top:
                             node.theta = others[j].value_top + 1
+                            node.deleted_by_dominance = True
+                            self.deleted_by_hint = others[j]
                             self.deleted_by_dominance.append(node)
                             del self.nodes[node.state]
                             dominated = True
@@ -166,6 +186,8 @@ class Layer:
                             j += 1
                     else:
                         node.theta = math.inf
+                        node.deleted_by_dominance = True
+                        self.deleted_by_hint = others[j]
                         self.deleted_by_dominance.append(node)
                         del self.nodes[node.state]
                         dominated = True
@@ -187,6 +209,8 @@ class Layer:
             threshold = self.input.cache.get(node.state)
             if threshold is not None and node.value_top <= threshold.theta:
                 node.theta = threshold.theta
+                node.deleted_by_cache = True
+                self.deleted_by_hint = threshold.theta
                 self.deleted_by_cache.append(node)
                 del self.nodes[node.state]
                 used = True
@@ -202,6 +226,8 @@ class Layer:
             node.rub = self.input.model.rough_upper_bound(node.state)
             if node.value_top + node.rub <= self.input.best:
                 node.theta = self.input.best - node.rub
+                node.deleted_by_rub = True
+                self.deleted_by_hint = self.input.best
                 self.deleted_by_rub.append(node)
                 del self.nodes[node.state]
                 used = True
@@ -224,6 +250,8 @@ class Layer:
         for node in list(self.nodes.values()):
             if node.cutset and node.value_top + node.value_bot <= self.input.best:
                 node.theta = self.input.best - node.value_bot
+                node.deleted_by_local_bounds = True
+                self.deleted_by_hint = self.input.best
                 self.deleted_by_local_bounds.append(node)
                 del self.nodes[node.state]
                 used = True
