@@ -42,7 +42,10 @@ class Tikz:
         node_elems["circle"] = stz.circle([0, 0], self.node_radius, style)
 
         # state text
-        node_elems["state"] = stz.latex([0, 0], self.state_fmt(node.state), self.text_style)
+        if node.depth == self.dd.input.model.nb_variables():
+            node_elems["state"] = stz.latex([0, 0], "$t$", self.text_style)
+        else:
+            node_elems["state"] = stz.latex([0, 0], self.state_fmt(node.state), self.text_style)
 
         # record elements in hashmap
         self.nodes[node.depth][node.state] = node_elems

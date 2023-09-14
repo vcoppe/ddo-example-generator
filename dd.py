@@ -369,8 +369,9 @@ class Diagram:
                 layer.frontier(self.cutset_nodes)
     
     def local_bounds(self):
-        for node in self.layers[-1].nodes.values():
-            node.value_bot = 0
+        if self.layers[-1].depth == self.input.model.nb_variables():
+            for node in self.layers[-1].nodes.values():
+                node.value_bot = 0
         for layer in reversed(self.layers):
             layer.local_bounds()
             self.used_locb |= layer.filter_with_local_bounds()
@@ -392,7 +393,7 @@ class Diagram:
             layer.thresholds(self.lel)
 
     def get_terminal(self):
-        if self.layers[-1].width() > 0:
+        if self.layers[-1].depth == self.input.model.nb_variables() and self.layers[-1].width() > 0:
             return next(iter(self.layers[-1].nodes.values()))
         return None
 
