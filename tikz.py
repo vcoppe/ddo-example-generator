@@ -3,8 +3,13 @@ import sane_tikz.formatting as fmt
 
 import math
 
+class Label:
+    def __init__(self, content, position="right"):
+        self.content = content
+        self.position = position
+
 class Tikz:
-    def __init__(self, dd, show_locbs=True, show_thresholds=True, text_style=r"font=\scriptsize", opt_style=fmt.line_width(2 * fmt.standard_line_width), cutset_style=fmt.line_width(2 * fmt.standard_line_width), relaxed_style=fmt.fill_color("black!10"), ub_style=fmt.text_color("black!50"), arc_style=r"-{Straight Barb[length=3pt,width=4pt]}", node_radius=0.25, annotation_horizontal_spacing=0.25, annotation_vertical_spacing=0.22, pruning_info_vertical_spacing=0.5, node_horizontal_spacing=2, node_vertical_spacing=2, max_nodes=5, state_fmt=lambda x: x, node_labels=dict(), node_label_style=r"font=\large", legend=None, arcs_sep_angle=75, arc_positions=dict()):
+    def __init__(self, dd, show_locbs=True, show_thresholds=True, text_style=r"font=\scriptsize", opt_style=fmt.line_width(3 * fmt.standard_line_width), cutset_style=fmt.line_width(2 * fmt.standard_line_width), relaxed_style=fmt.fill_color("black!10"), ub_style=fmt.text_color("black!50"), arc_style=r"-{Straight Barb[length=3pt,width=4pt]}", node_radius=0.25, annotation_horizontal_spacing=0.25, annotation_vertical_spacing=0.22, pruning_info_vertical_spacing=0.5, node_horizontal_spacing=2, node_vertical_spacing=2, max_nodes=5, state_fmt=lambda x: x, node_labels=dict(), node_label_style=r"font=\large", legend=None, arcs_sep_angle=75, arc_positions=dict()):
         self.dd = dd
         self.nodes = [dict() for _ in range(dd.input.model.nb_variables() + 1)]
         self.others = []
@@ -79,7 +84,8 @@ class Tikz:
             stz.align_centers_vertically([[node_elems["value_bot"], node_elems["value_top"]]], node_elems["state"]["cs"][1])
 
         # add thresholds for relaxed dds
-        if (self.dd.relaxed or self.dd.is_exact()) and self.show_thresholds:
+        if (self.dd.relaxed or self.dd.is_exact()) and self.show_thresholds and \
+            (not node.relaxed or node.theta < math.inf):
             node_elems["theta"] = stz.latex(
                 stz.translate_coords_horizontally(node_elems["state"]["cs"], - self.annotation_horizontal_spacing),
                 "{theta}".format(theta=(r"$\theta=" + (r"\infty" if node.theta == math.inf else str(node.theta)) + r"$")),
@@ -134,11 +140,34 @@ class Tikz:
             )
         
         if node.state in self.node_labels:
-            node_elems["label"] = stz.latex(
-                stz.translate_coords_horizontally(node_elems["state"]["cs"], self.annotation_horizontal_spacing),
-                r"$" + "{label}".format(label=self.node_labels[node.state]) + r"$",
-                fmt.combine_tikz_strs([self.node_label_style, fmt.anchor("left_center")])
-            )
+            bbox = stz.bbox(list(filter(lambda e: e["type"] == "latex", node_elems.values())))
+            label = self.node_labels[node.state]
+            if isinstance(label, str):
+                label = Label(label)
+            if label.position == "right":
+                node_elems["label"] = stz.latex(
+                    stz.translate_coords_horizontally([bbox[1][0], node_elems["state"]["cs"][1]], self.annotation_horizontal_spacing),
+                    r"$" + "{label}".format(label=label.content) + r"$",
+                    fmt.combine_tikz_strs([self.node_label_style, fmt.anchor("left_center")])
+                )
+            elif label.position == "left":
+                node_elems["label"] = stz.latex(
+                    stz.translate_coords_horizontally([bbox[0][0], node_elems["state"]["cs"][1]], - self.annotation_horizontal_spacing),
+                    r"$" + "{label}".format(label=label.content) + r"$",
+                    fmt.combine_tikz_strs([self.node_label_style, fmt.anchor("right_center")])
+                )
+            elif label.position == "top":
+                node_elems["label"] = stz.latex(
+                    stz.translate_coords_vertically([node_elems["state"]["cs"][0], bbox[0][1]], self.annotation_horizontal_spacing),
+                    r"$" + "{label}".format(label=label.content) + r"$",
+                    fmt.combine_tikz_strs([self.node_label_style, fmt.anchor("bottom_center")])
+                )
+            elif label.position == "bottom":
+                node_elems["label"] = stz.latex(
+                    stz.translate_coords_vertically([node_elems["state"]["cs"][0], bbox[1][1]], - self.annotation_horizontal_spacing),
+                    r"$" + "{label}".format(label=label.content) + r"$",
+                    fmt.combine_tikz_strs([self.node_label_style, fmt.anchor("top_center")])
+                )
     
     def node_arcs(self, node):
         to_elems = self.nodes[node.depth][node.state]

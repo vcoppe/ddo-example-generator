@@ -330,7 +330,7 @@ class Diagram:
         while depth < self.input.model.nb_variables():
             self.layers.append(self.layers[-1].next())
 
-            if depth > self.input.root.depth and depth + 1 < self.input.model.nb_variables():
+            if depth + 1 < self.input.model.nb_variables():
                 (used_cache, used_cache_larger, used_cache_pruning) = self.layers[-1].filter_with_cache()
                 self.used_cache |= used_cache
                 self.used_cache_larger |= used_cache_larger
@@ -352,7 +352,7 @@ class Diagram:
             self.thresholds()
 
     def cutset(self):
-        if self.input.settings.cutset == Cutset.LAYER:
+        if self.input.settings.cutset == Cutset.LAYER or self.is_exact():
             for node in self.layers[self.lel - self.input.root.depth].nodes.values():
                 node.cutset = True
                 self.cutset_nodes.append(node)
@@ -360,11 +360,6 @@ class Diagram:
                 for node in layer.nodes.values():
                     node.above_cutset = True
         elif self.input.settings.cutset == Cutset.FRONTIER:
-            if self.is_exact():
-                terminal = self.get_terminal()
-                if terminal is not None:
-                    terminal.theta = max(self.input.best, terminal.value_top)
-                    terminal.above_cutset = True
             for layer in reversed(self.layers):
                 layer.frontier(self.cutset_nodes)
     
