@@ -37,7 +37,7 @@ def main():
             setting = settings[i]
 
             solver = Solver(model, dominance_rule, None)
-            solver.solve(setting)
+            solver.solve(setting, [0])
 
             if len(solver.dds) < 4:
                 found = False
