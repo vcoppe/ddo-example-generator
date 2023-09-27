@@ -9,13 +9,15 @@ class Label:
         self.position = position
 
 class Tikz:
-    def __init__(self, dd, show_locbs=True, show_thresholds=True, text_style=r"font=\scriptsize", opt_style=fmt.line_width(3 * fmt.standard_line_width), cutset_style=fmt.line_width(2 * fmt.standard_line_width), relaxed_style=fmt.fill_color("black!10"), ub_style=fmt.text_color("black!50"), arc_style=r"-{Straight Barb[length=3pt,width=4pt]}", node_radius=0.25, annotation_horizontal_spacing=0.25, annotation_vertical_spacing=0.22, pruning_info_vertical_spacing=0.5, node_horizontal_spacing=2, node_vertical_spacing=2, max_nodes=5, state_fmt=lambda x: x, node_labels=dict(), node_label_style=r"font=\large", legend=None, arcs_sep_angle=75, arc_positions=dict()):
+    def __init__(self, dd, show_locbs=True, show_thresholds=True, text_style=r"font=\scriptsize", opt_style=fmt.line_width(3 * fmt.standard_line_width), cutset_style=fmt.line_width(2 * fmt.standard_line_width), relaxed_style=fmt.fill_color("black!10"), ub_style=fmt.text_color("black!50"), arc_style=r"-{Straight Barb[length=3pt,width=4pt]}", node_radius=0.25, annotation_horizontal_spacing=0.25, annotation_vertical_spacing=0.22, pruning_info_vertical_spacing=0.5, node_horizontal_spacing=2, node_vertical_spacing=2, max_nodes=5, state_fmt=lambda x: x, node_labels=dict(), node_label_style=r"font=\large", legend=None, arcs_sep_angle=75, arc_positions=dict(), show_layer_label=False, show_variable_label=False):
         self.dd = dd
         self.nodes = [dict() for _ in range(dd.input.model.nb_variables() + 1)]
         self.others = []
 
         self.show_locbs = show_locbs
         self.show_thresholds = show_thresholds
+        self.show_layer_label = show_layer_label
+        self.show_variable_label = show_variable_label
 
         self.text_style = text_style
         self.opt_style = opt_style
@@ -281,6 +283,17 @@ class Tikz:
         # align layers horizontally
         stz.distribute_centers_vertically_with_spacing(e_lst, self.node_vertical_spacing)
         stz.align_centers_horizontally(e_lst, 0)
+    
+    def layer_and_variable_labels(self):
+        bbox = stz.bbox(self.get_e_lst())
+        if self.show_layer_label:
+            for l in range(len(self.dd.layers)):
+                self.others.append(stz.latex([bbox[1][0] + self.node_horizontal_spacing / 2, (len(self.dd.layers) - 1 - l) * self.node_vertical_spacing], r"$L_" + str(l) + r"$", self.text_style))
+        
+        if self.show_variable_label:
+            for l in range(len(self.dd.layers) - 1):
+                self.others.append(stz.latex([bbox[1][0] + self.node_horizontal_spacing / 2, (len(self.dd.layers) - 1.5 - l) * self.node_vertical_spacing], r"$x_" + str(l) + r"$", self.text_style))
+
 
     def bottom_legend(self):
         if self.legend is not None:
@@ -308,6 +321,9 @@ class Tikz:
 
         # add legend
         self.bottom_legend()
+        
+        # add layer/variable labels
+        self.layer_and_variable_labels()
 
         return self.get_e_lst()
     

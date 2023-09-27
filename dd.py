@@ -132,6 +132,8 @@ class Layer:
     def filter_with_dominance(self):
         if not self.input.settings.use_dominance:
             return False
+        if self.input.dominance_rule is None:
+            return False
         used = False
         order = sorted(self.nodes.values(), key=lambda n: (self.input.dominance_rule.value(n.state), n.value_top), reverse=True)
         for i in range(len(order)):
