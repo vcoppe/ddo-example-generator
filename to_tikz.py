@@ -17,7 +17,7 @@ def main():
             Settings(width, cutset, use_rub=True, use_locb=True, use_cache=True, use_dominance=False),
         ],
         [
-            Settings(width, cutset, use_rub=True, use_locb=True, use_cache=False, use_dominance=False),
+            Settings(width, cutset, use_rub=True, use_locb=True, use_cache=False, use_dominance=True),
             Settings(width, cutset, use_rub=True, use_locb=True, use_cache=True, use_dominance=True),
         ]
     ]
@@ -44,35 +44,37 @@ def main():
 
     all_dds.append(solver.dds)
 
-    Tikz.to_file(Tikz(Diagram(CompilationInput(model, dominance_rule, Node(model.root()), 0, dict(), dict(), False, Settings())), state_fmt=state_fmt, show_thresholds=False, show_layer_label=True, show_variable_label=True, arcs_sep_angle=80, legend="(b) Exact DD", node_labels={
-            KnapsackState(15, 1): "a_1",
-            KnapsackState(11, 1): "a_2",
-    }, arc_positions={
+    solver = Solver(model, dominance_rule, None)
+    solver.solve([Settings(width, cutset=Cutset.FRONTIER, use_rub=True, use_locb=True, use_cache=False, use_dominance=True)])
+
+    all_dds.append(solver.dds)
+
+    Tikz.to_file(Tikz(Diagram(CompilationInput(model, dominance_rule, Node(model.root()), 0, dict(), dict(), False, Settings())), state_fmt=state_fmt, show_thresholds=False, show_layer_label=True, show_variable_label=True, arcs_sep_angle=80, arc_positions={
         (KnapsackState(11, 2),KnapsackState(3,3)): .5,
         (KnapsackState(9, 2),KnapsackState(9,3)): .2,
     }).diagram(), "exact_dd")
+
+    Tikz.to_file(Tikz(Diagram(CompilationInput(model, dominance_rule, Node(model.root()), 0, dict(), dict(), False, Settings(use_dominance=True))), state_fmt=state_fmt, show_thresholds=False, arcs_sep_angle=80, arc_positions={
+        (KnapsackState(11, 2),KnapsackState(3,3)): .5,
+        (KnapsackState(9, 2),KnapsackState(9,3)): .2,
+        (KnapsackState(11, 4),KnapsackState(15,5)): .45,
+        (KnapsackState(7, 4),KnapsackState(15,5)): .45,
+    }).diagram(), "exact_dd_dominance")
     
-    dds = [
-        Tikz(all_dds[0][0], state_fmt=state_fmt, legend="(a) Restricted DD", arc_positions={
-            (KnapsackState(9, 2),KnapsackState(1,3)): .2,
-            (KnapsackState(5, 2),KnapsackState(5,3)): .5,
-        }).diagram(),
-        Tikz(all_dds[0][1], state_fmt=state_fmt, legend="(b) Relaxed DD", show_thresholds=False, node_horizontal_spacing=2.2, node_labels={
-            KnapsackState(15, 1): "a_1",
-            KnapsackState(11, 1): "a_2",
-            KnapsackState(15, 3): "c_1",
-            KnapsackState(11, 3): "c_2",
-            KnapsackState(9, 3): "c_3",
-            KnapsackState(5, 3): "c_4",
-            KnapsackState(7, 4): "d_1",
-            KnapsackState(5, 4): "d_2",
-            KnapsackState(1, 4): "d_3",
-        }, arc_positions={
-            (KnapsackState(5, 3),KnapsackState(3,4)): .45,
-            (KnapsackState(5, 3),KnapsackState(1,4)): .5,
-        }).diagram()
-    ]
-    Tikz.to_file(Tikz.combine(dds), "root_dds_pruning")
+    Tikz.to_file(Tikz(all_dds[0][1], state_fmt=state_fmt, show_thresholds=False, node_horizontal_spacing=2.2, node_labels={
+        KnapsackState(15, 1): "a_1",
+        KnapsackState(11, 1): "a_2",
+        KnapsackState(15, 3): "c_1",
+        KnapsackState(11, 3): "c_2",
+        KnapsackState(9, 3): "c_3",
+        KnapsackState(5, 3): "c_4",
+        KnapsackState(7, 4): "d_1",
+        KnapsackState(5, 4): "d_2",
+        KnapsackState(1, 4): "d_3",
+    }, arc_positions={
+        (KnapsackState(5, 3),KnapsackState(3,4)): .45,
+        (KnapsackState(5, 3),KnapsackState(1,4)): .5,
+    }).diagram(), "root_dds_pruning")
 
     dds = [
         Tikz(all_dds[0][2], state_fmt=state_fmt, show_locbs=False, legend="(a) Relaxed DD rooted at $a_2$", node_labels={
@@ -110,10 +112,10 @@ def main():
     Tikz.to_file(Tikz.combine(dds, spacing=0.7), "cutset_dds_pruning")
 
     dds = [
-        Tikz(all_dds[2][2], state_fmt=state_fmt, legend="(a) Relaxed DD rooted at $a_2$", node_labels={
+        Tikz(all_dds[2][2], state_fmt=state_fmt, legend="(a) Relaxed DD rooted at $a_2$", show_locbs=False, node_labels={
             KnapsackState(11, 1): "a_2",
         }).diagram(),
-        Tikz(all_dds[2][3], state_fmt=state_fmt, legend="(b) Relaxed DD rooted at $a_1$", node_labels={
+        Tikz(all_dds[2][3], state_fmt=state_fmt, legend="(b) Relaxed DD rooted at $a_1$", show_locbs=False, node_labels={
             KnapsackState(15, 1): "a_1",
         }).diagram()
     ]
@@ -124,31 +126,33 @@ def main():
             (KnapsackState(9, 2),KnapsackState(1,3)): .2,
             (KnapsackState(5, 2),KnapsackState(5,3)): .5,
         }).diagram(),
-        Tikz(all_dds[3][1], state_fmt=state_fmt, legend="(b) Relaxed DD", show_locbs=False, show_thresholds=False, node_labels={
-            KnapsackState(15, 1): "a_1",
-            KnapsackState(11, 1): "a_2",
-            KnapsackState(9, 2): "b_1",
-            KnapsackState(5, 2): "b_2",
-            KnapsackState(1, 3): "c_1",
-        }, arc_positions={
+        Tikz(all_dds[3][1], state_fmt=state_fmt, legend="(b) Relaxed DD", show_locbs=False, show_thresholds=False, arc_positions={
             (KnapsackState(9, 2),KnapsackState(1,3)): .2,
             (KnapsackState(5, 2),KnapsackState(15,3)): .5,
             (KnapsackState(7, 3),KnapsackState(3,4)): .2,
             (KnapsackState(1, 3),KnapsackState(15,4)): .5,
         }).diagram()
     ]
-    Tikz.to_file(Tikz.combine(dds, spacing=3), "root_dds")
+    Tikz.to_file(Tikz.combine(dds, spacing=2), "root_dds")
 
     Tikz.to_file(Tikz(all_dds[3][4], state_fmt=state_fmt, node_vertical_spacing=1.2, arcs_sep_angle=120, node_label_style=r"font=\normalsize", node_labels={
         KnapsackState(11, 1): "a_2",
     }).diagram(), "cutset_restricted_1_bab")
-    Tikz.to_file(Tikz(all_dds[3][5], state_fmt=state_fmt, node_vertical_spacing=1.2, arcs_sep_angle=120, node_label_style=r"font=\normalsize", show_locbs=False, show_thresholds=False, node_labels={
+    Tikz.to_file(Tikz(all_dds[3][5], state_fmt=state_fmt, node_vertical_spacing=1.2, arcs_sep_angle=120, node_label_style=r"font=\normalsize", cutset_style=fmt.line_width(fmt.standard_line_width), show_locbs=False, show_thresholds=False, node_labels={
         KnapsackState(11, 1): "a_2",
-        KnapsackState(11, 2): "b_1",
-        KnapsackState(5, 2): "b_2",
+        #KnapsackState(11, 2): "b_1",
+        #KnapsackState(5, 2): "b_2",
         #KnapsackState(3, 3): "c_1",
         #KnapsackState(1, 4): "d_3",
     }).diagram(), "cutset_relaxed_1_bab")
+    
+    Tikz.to_file(Tikz(all_dds[4][2], state_fmt=state_fmt, show_thresholds=False, show_empty_layer=False, node_labels={
+        KnapsackState(11, 1): "a_2",
+        KnapsackState(5, 3): Label("c_3", "bottom"),
+        KnapsackState(1, 3): Label("c_5", "bottom"),
+        KnapsackState(3, 4): Label("d_1", "bottom"),
+        KnapsackState(1, 4): Label("d_2", "bottom"),
+    }).diagram(), "cutset_dd_dominance")
 
 if __name__ == "__main__":
     main() 
