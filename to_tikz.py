@@ -53,11 +53,11 @@ def main():
     }).diagram(), "exact_dd")
     
     dds = [
-        Tikz(all_dds[0][0], state_fmt=state_fmt, legend="(a) Restricted DD", arc_positions={
+        Tikz(all_dds[0][0], state_fmt=state_fmt, legend=r"(a) Restricted DD $\rst{B}$", arc_positions={
             (KnapsackState(9, 2),KnapsackState(1,3)): .2,
             (KnapsackState(5, 2),KnapsackState(5,3)): .5,
         }).diagram(),
-        Tikz(all_dds[0][1], state_fmt=state_fmt, legend="(b) Relaxed DD", show_thresholds=False, node_horizontal_spacing=2.2, node_labels={
+        Tikz(all_dds[0][1], state_fmt=state_fmt, legend=r"(b) Relaxed DD $\rlx{B}$", show_thresholds=False, node_horizontal_spacing=2.2, node_labels={
             KnapsackState(15, 1): "a_1",
             KnapsackState(11, 1): "a_2",
             KnapsackState(15, 3): "c_1",
@@ -75,7 +75,7 @@ def main():
     Tikz.to_file(Tikz.combine(dds), "root_dds_pruning")
 
     dds = [
-        Tikz(all_dds[0][2], state_fmt=state_fmt, show_locbs=False, legend="(a) Relaxed DD rooted at $a_2$", node_labels={
+        Tikz(all_dds[0][2], state_fmt=state_fmt, node_horizontal_spacing=2.5, show_locbs=False, theta=r"\theta_d", legend="(a) Relaxed DD rooted at $a_2$", node_labels={
             KnapsackState(11, 1): "a_2",
             KnapsackState(11, 2): "b_1",
             KnapsackState(5, 2): "b_2",
@@ -92,7 +92,7 @@ def main():
     Tikz.to_file(Tikz.combine(dds), "cutset_dds")
 
     dds = [
-        Tikz(all_dds[1][2], state_fmt=state_fmt, show_locbs=False, node_horizontal_spacing=1.7, legend="(a) Relaxed DD rooted at $a_2$", node_labels={
+        Tikz(all_dds[1][2], state_fmt=state_fmt, show_locbs=False, theta=r"\theta_p", node_horizontal_spacing=1.7, legend="(a) Relaxed DD rooted at $a_2$", node_labels={
             KnapsackState(11, 1): "a_2",
             KnapsackState(11, 3): Label("c_1", "bottom"),
             KnapsackState(1, 3): Label("c_2", "bottom"),
@@ -120,11 +120,11 @@ def main():
     Tikz.to_file(Tikz.combine(dds), "cutset_dds_dominance")
     
     dds = [
-        Tikz(all_dds[3][0], state_fmt=state_fmt, legend="(a) Restricted DD", arc_positions={
+        Tikz(all_dds[3][0], state_fmt=state_fmt, legend=r"(a) Restricted DD $\rst{B}$", arc_positions={
             (KnapsackState(9, 2),KnapsackState(1,3)): .2,
             (KnapsackState(5, 2),KnapsackState(5,3)): .5,
         }).diagram(),
-        Tikz(all_dds[3][1], state_fmt=state_fmt, legend="(b) Relaxed DD", show_locbs=False, show_thresholds=False, node_labels={
+        Tikz(all_dds[3][1], state_fmt=state_fmt, legend=r"(b) Relaxed DD $\rlx{B}$", show_locbs=False, show_thresholds=False, node_labels={
             KnapsackState(15, 1): "a_1",
             KnapsackState(11, 1): "a_2",
             KnapsackState(9, 2): "b_1",
