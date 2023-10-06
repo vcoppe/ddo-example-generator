@@ -146,12 +146,14 @@ def main():
         #KnapsackState(1, 4): "d_3",
     }).diagram(), "cutset_relaxed_1_bab")
     
-    Tikz.to_file(Tikz(all_dds[4][2], state_fmt=state_fmt, show_thresholds=False, show_empty_layer=False, node_labels={
-        KnapsackState(11, 1): "a_2",
-        KnapsackState(5, 3): Label("c_3", "bottom"),
-        KnapsackState(1, 3): Label("c_5", "bottom"),
-        KnapsackState(3, 4): Label("d_1", "bottom"),
-        KnapsackState(1, 4): Label("d_2", "bottom"),
+    Tikz.to_file(Tikz(all_dds[4][3], state_fmt=state_fmt, show_thresholds=False, show_layer_label=True, node_labels={
+        KnapsackState(15, 1): "a_1",
+        KnapsackState(15, 3): "c_1",
+        KnapsackState(11, 3): "c_2",
+        KnapsackState(9, 3): "c_3",
+        KnapsackState(7, 3): "c_4",
+        KnapsackState(5, 3): "c_5",
+        KnapsackState(1, 3): "c_6",
     }).diagram(), "cutset_dd_dominance")
 
 if __name__ == "__main__":

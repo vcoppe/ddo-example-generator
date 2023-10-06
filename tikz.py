@@ -289,11 +289,11 @@ class Tikz:
         bbox = stz.bbox(self.get_e_lst())
         if self.show_layer_label:
             for l in range(len(self.dd.layers)):
-                self.others.append(stz.latex([bbox[1][0] + self.node_horizontal_spacing / 2, (len(self.dd.layers) - 1 - l) * self.node_vertical_spacing], r"$L_" + str(l) + r"$", self.text_style))
+                self.others.append(stz.latex([bbox[1][0] + self.node_horizontal_spacing / 2, (len(self.dd.layers) - 1 - l) * self.node_vertical_spacing], r"$L_" + str(self.dd.layers[l].depth) + r"$", self.text_style))
         
         if self.show_variable_label:
             for l in range(len(self.dd.layers) - 1):
-                self.others.append(stz.latex([bbox[1][0] + self.node_horizontal_spacing / 2, (len(self.dd.layers) - 1.5 - l) * self.node_vertical_spacing], r"$x_" + str(l) + r"$", self.text_style))
+                self.others.append(stz.latex([bbox[1][0] + self.node_horizontal_spacing / 2, (len(self.dd.layers) - 1.5 - l) * self.node_vertical_spacing], r"$x_" + str(self.dd.layers[l].depth) + r"$", self.text_style))
 
 
     def bottom_legend(self):
