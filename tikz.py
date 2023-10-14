@@ -103,6 +103,18 @@ class Tikz:
             stz.distribute_vertically_with_spacing(e_lst, self.annotation_vertical_spacing)
             stz.align_centers_vertically([e_lst], node_elems["state"]["cs"][1])
 
+        # add score for restricted dds
+        if not self.dd.relaxed and self.dd.input.settings.use_aggh:
+            node_elems["score"] = stz.latex(
+                stz.translate_coords_horizontally(node_elems["state"]["cs"], - self.annotation_horizontal_spacing),
+                "{score}".format(score=(r"{\tiny $score=" + str(node.score) + r"$ }")),
+                fmt.combine_tikz_strs([self.text_style, fmt.anchor("right_center")])
+            )
+            e_lst = [node_elems["value_top"]]
+            e_lst.insert(0, node_elems["score"])
+            stz.distribute_vertically_with_spacing(e_lst, self.annotation_vertical_spacing)
+            stz.align_centers_vertically([e_lst], node_elems["state"]["cs"][1])
+
         # pruning info
         if node.deleted_by_rub or node.deleted_by_local_bounds or node.deleted_by_cache or node.deleted_by_dominance:
             bbox = stz.bbox(node_elems["circle"])

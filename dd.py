@@ -24,11 +24,12 @@ class Arc:
         self.opt = False
         
 class Node:
-    def __init__(self, state, depth=0, value_top=0, arc=None, relaxed=False, merged=False, ub=math.inf):
+    def __init__(self, state, depth=0, value_top=0, score=0, arc=None, relaxed=False, merged=False, ub=math.inf):
         self.state = state
         self.depth = depth
         self.value_top = value_top
         self.value_bot = -math.inf
+        self.score = score
         self.theta = math.inf
         self.rub = math.inf
         self.ub = ub
@@ -77,7 +78,8 @@ class Layer:
                 if state is None:
                     continue
                 reward = self.input.model.reward(node.state, decision)
-                next.insert(Node(state, next.depth, node.value_top + reward, Arc(node, reward, decision), node.relaxed))
+                score = self.input.model.score(node.state, decision)
+                next.insert(Node(state, next.depth, node.value_top + reward, node.score + score, Arc(node, reward, decision), node.relaxed))
         return next
 
     def insert(self, node):
@@ -88,13 +90,18 @@ class Layer:
         else:
             current.arcs.append(node.arcs[0])
             current.value_top = max(current.value_top, node.value_top)
+            current.score = max(current.score, node.score)
             current.relaxed |= node.relaxed
 
     def shrink(self):
-        order = sorted(self.nodes.values(), key=lambda n: n.value_top, reverse=True)
         if self.input.relaxed:
+            order = sorted(self.nodes.values(), key=lambda n: n.value_top, reverse=True)
             self.relax(order)
         else:
+            if self.input.settings.use_aggh:
+                order = sorted(self.nodes.values(), key=lambda n: (n.score, n.value_top), reverse=True)
+            else:
+                order = sorted(self.nodes.values(), key=lambda n: n.value_top, reverse=True)
             self.restrict(order)
     
     def restrict(self, order):
@@ -224,6 +231,8 @@ class Layer:
         used = False
         for node in list(self.nodes.values()):
             node.rub = self.input.model.rough_upper_bound(node.state)
+            if self.input.settings.use_aggb:
+                node.rub = min(node.rub, self.input.model.aggregate_bound(node.state))
             if node.value_top + node.rub <= self.input.best:
                 node.theta = self.input.best - node.rub
                 node.deleted_by_rub = True
@@ -399,6 +408,18 @@ class Diagram:
         if terminal is None:
             return None
         return terminal.value_top
+
+    def get_best_solution(self):
+        current = self.get_terminal()
+        if current is None:
+            return None
+        solution = []
+        while len(current.arcs) > 0:
+            for arc in current.arcs:
+                if arc.opt:
+                    solution.insert(0, arc.decision)
+                    current = arc.parent
+        return solution
 
     def get_cutset(self):
         return self.cutset_nodes
