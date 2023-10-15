@@ -130,6 +130,7 @@ class Layer:
         for node in to_merge:
             self.input.model.merge(merged.state, node.state)
             merged.value_top = max(merged.value_top, node.value_top)
+            merged.score = max(merged.score, node.score)
             merged.arcs.extend(node.arcs)
             merged.relaxed |= node.relaxed
             self.deleted_by_shrink.append(node)
