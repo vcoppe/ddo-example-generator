@@ -32,7 +32,7 @@ class Solver:
 
     def solve(self, settings=None, restricted_its=None):
         it = -1
-        self.enqueue(Node(self.input.model.root()))
+        self.enqueue(Node(self.input.model.root(), value_top=self.input.model.root_value()))
 
         while not self.finished():
             it += 1

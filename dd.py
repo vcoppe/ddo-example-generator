@@ -24,7 +24,7 @@ class Arc:
         self.opt = False
         
 class Node:
-    def __init__(self, state, depth=0, value_top=0, arc=None, relaxed=False, merged=False, ub=math.inf):
+    def __init__(self, state, depth=0, value_top=-math.inf, arc=None, relaxed=False, merged=False, ub=math.inf):
         self.state = state
         self.depth = depth
         self.value_top = value_top
