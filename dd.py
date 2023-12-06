@@ -109,9 +109,9 @@ class Layer:
     def finalize(self):
         nodes = list(self.nodes.values())
         if self.width() > 0:
-            self.relax_helper(nodes, Node(nodes[0].state.clone(), nodes[0].depth, relaxed=False))
+            #self.relax_helper(nodes, Node(nodes[0].state.clone(), nodes[0].depth, relaxed=False))
         
-            current = next(iter(self.nodes.values()))
+            current = max(self.nodes.values(), key=lambda n: n.value_top)
             while len(current.arcs) > 0:
                 for arc in current.arcs:
                     if arc.parent.value_top + arc.reward == current.value_top:

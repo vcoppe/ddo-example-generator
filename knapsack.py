@@ -38,20 +38,27 @@ class KnapsackInstance:
         return KnapsackInstance(n, c, w, v, q)
 
 class KnapsackState:
+    cnt = 0
     def __init__(self, capa, depth):
         self.capa = capa
         self.depth = depth
+        self.cnt = KnapsackState.cnt
+        KnapsackState.cnt += 1
 
     def clone(self):
         return KnapsackState(self.capa, self.depth)
     
     def __lt__(self, other): # used only for tikz output
+        #return self.cnt < other.cnt
         return self.capa > other.capa
 
+
     def __hash__(self):
+        #return hash((self.capa, self.depth, self.cnt))
         return hash((self.capa, self.depth))
 
     def __eq__(self, other):
+        #return (self.capa, self.depth, self.cnt) == (other.capa, other.depth, other.cnt)
         return (self.capa, self.depth) == (other.capa, other.depth)
     
     def __str__(self):
@@ -71,6 +78,8 @@ class KnapsackModel:
         return range(self.instance.q[variable] + 1)
     
     def successor(self, state, decision):
+        #if state.depth >= 3:
+        #    return None
         capa = state.capa - decision * self.instance.w[state.depth]
         if capa < 0:
             return None

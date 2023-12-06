@@ -59,7 +59,7 @@ class Tikz:
         node_elems["circle"] = stz.circle([0, 0], self.node_radius, style)
 
         # state text
-        if node.depth == self.dd.input.model.nb_variables():
+        if False and node.depth == self.dd.input.model.nb_variables():
             node_elems["state"] = stz.latex([0, 0], "$t$", self.text_style)
         else:
             node_elems["state"] = stz.latex([0, 0], self.state_fmt(node.state), self.text_style)
@@ -203,7 +203,7 @@ class Tikz:
 
             #if len(arcs) > 1:
             delta = self.arcs_sep_angle * math.pow(math.sin(stz.degrees_to_radians(out_angle)), 2) / len(arcs)
-            alpha = - (out_angle - 270) * math.fabs(math.cos(stz.degrees_to_radians(out_angle))) * 0.2 #- (out_angle - 270) * 0.1
+            alpha = - (out_angle - 270) * math.fabs(math.cos(stz.degrees_to_radians(out_angle))) * 0.15 #0.02
             alpha -= delta * (len(arcs) - 1) / 2
 
             for arc in sorted(arcs, key=lambda x: x.decision):
