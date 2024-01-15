@@ -9,7 +9,7 @@ class Label:
         self.position = position
 
 class Tikz:
-    def __init__(self, dd, show_locbs=True, show_thresholds=True, text_style=r"font=\scriptsize", opt_style=fmt.line_width(3 * fmt.standard_line_width), cutset_style=fmt.line_width(2 * fmt.standard_line_width), relaxed_style=fmt.fill_color("black!10"), ub_style=fmt.text_color("black!50"), arc_style=r"-{Straight Barb[length=3pt,width=4pt]}", node_radius=0.25, annotation_horizontal_spacing=0.25, annotation_vertical_spacing=0.22, pruning_info_vertical_spacing=0.5, node_horizontal_spacing=2, node_vertical_spacing=2, max_nodes=5, state_fmt=lambda x: x, node_labels=dict(), node_label_style=r"font=\large", legend=None, arcs_sep_angle=75, arc_positions=dict(), show_layer_label=False, show_variable_label=False, show_empty_layer=True, theta=r"\theta"):
+    def __init__(self, dd, show_locbs=True, show_thresholds=True, text_style=r"font=\scriptsize", opt_style=fmt.line_width(3 * fmt.standard_line_width), cutset_style=fmt.line_width(2 * fmt.standard_line_width), relaxed_style=fmt.fill_color("black!10"), ub_style=fmt.text_color("black!50"), arc_style=r"-{Straight Barb[length=3pt,width=4pt]}", node_radius=0.25, annotation_horizontal_spacing=0.25, annotation_vertical_spacing=0.22, pruning_info_vertical_spacing=0.5, node_horizontal_spacing=1.5, node_vertical_spacing=1.5, max_nodes=4, state_fmt=lambda x: x, node_labels=dict(), node_label_style=r"font=\large", legend=None, arcs_sep_angle=90, arc_positions=dict(), show_layer_label=False, show_variable_label=False, show_empty_layer=True, theta=r"\theta"):
         self.dd = dd
         self.nodes = [dict() for _ in range(dd.input.model.nb_variables() + 1)]
         self.others = []
@@ -216,6 +216,8 @@ class Tikz:
                 position = .35
                 if (parent.state, node.state) in self.arc_positions:
                     position = self.arc_positions[(parent.state, node.state)]
+                    if isinstance(position, dict):
+                        position = position[arc.decision]
 
                 decoration = r"postaction={decorate, decoration={" \
                     + r"markings, mark=at position " + str(position) + r" with { \node[" \
@@ -291,11 +293,11 @@ class Tikz:
         bbox = stz.bbox(self.get_e_lst())
         if self.show_layer_label:
             for l in range(len(self.dd.layers)):
-                self.others.append(stz.latex([bbox[1][0] + self.node_horizontal_spacing / 2, (len(self.dd.layers) - 1 - l) * self.node_vertical_spacing], r"$L_" + str(self.dd.layers[l].depth) + r"$", self.text_style))
+                self.others.append(stz.latex([bbox[0][0] - self.node_horizontal_spacing / 2, (len(self.dd.layers) - 1 - l) * self.node_vertical_spacing], r"$L_" + str(self.dd.layers[l].depth) + r"$", self.text_style))
         
         if self.show_variable_label:
             for l in range(len(self.dd.layers) - 1):
-                self.others.append(stz.latex([bbox[1][0] + self.node_horizontal_spacing / 2, (len(self.dd.layers) - 1.5 - l) * self.node_vertical_spacing], r"$x_" + str(self.dd.layers[l].depth) + r"$", self.text_style))
+                self.others.append(stz.latex([bbox[0][0] - self.node_horizontal_spacing / 2, (len(self.dd.layers) - 1.5 - l) * self.node_vertical_spacing], r"$x_" + str(self.dd.layers[l].depth) + r"$", self.text_style))
 
 
     def bottom_legend(self):

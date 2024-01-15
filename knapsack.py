@@ -17,7 +17,7 @@ class KnapsackInstance:
         self.q = [r[i][3] for i in range(n)]
     
     def __str__(self):
-        return "instance<n=" + str(self.n) + ",c=" + str(self.c) + ",v=" + str(self.v) + ",w=" + str(self.w) + ",q=" + str(self.q) + ">"
+        return "KnapsackInstance(" + str(self.n) + ", " + str(self.c) + ", " + str(self.w) + ", " + str(self.v) + ", " + str(self.q) + ")"
     
     def random(n, rand):
         alpha = 6
@@ -26,10 +26,11 @@ class KnapsackInstance:
         c = n * alpha // beta
         v = []
         w = []
-        q = [1 + i % 2 for i in range(n)]
-        q[-1] = rand.randint(1, 2)
+        q = [1 for i in range(n)]
+        # q = [1 + i % 2 for i in range(n)]
+        # q[-1] = rand.randint(1, 2)
 
-        rand.shuffle(q)
+        # rand.shuffle(q)
 
         for _ in range(n):
             v.append(rand.randint(1, alpha))

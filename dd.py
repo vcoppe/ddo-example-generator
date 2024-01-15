@@ -46,7 +46,7 @@ class Node:
         self.deleted_by_hint = None
 
     def __lt__(self, other):
-        return self.ub > other.ub
+        return self.value_top > other.value_top#self.ub > other.ub
     
     def __str__(self):
         return "node<state=" + str(self.state) + ",value_top=" + str(self.value_top) \
@@ -131,10 +131,11 @@ class Layer:
     
     def filter_with_dominance(self):
         if not self.input.settings.use_dominance:
-            return False
+            return (False, False)
         if self.input.dominance_rule is None:
-            return False
+            return (False, False)
         used = False
+        used_real = False
         order = sorted(self.nodes.values(), key=lambda n: (self.input.dominance_rule.value(n.state), n.value_top), reverse=True)
         for i in range(len(order)):
             node = order[i]
@@ -181,6 +182,7 @@ class Layer:
                             self.deleted_by_dominance.append(node)
                             del self.nodes[node.state]
                             dominated = True
+                            used_real = True
                             break
                         else:
                             j += 1
@@ -191,13 +193,14 @@ class Layer:
                         self.deleted_by_dominance.append(node)
                         del self.nodes[node.state]
                         dominated = True
+                        used_real = True
                         break
             
             if dominated:
                 used = True
             else:
                 others.append(node)
-        return used
+        return (used, used_real)
     
     def filter_with_cache(self):
         if not self.input.settings.use_cache:
@@ -319,6 +322,7 @@ class Diagram:
         self.cutset_nodes = []
 
         self.used_dominance = False
+        self.used_dominance_real = False
         self.used_cache = False
         self.used_cache_larger = False
         self.used_cache_pruning = False
@@ -337,7 +341,9 @@ class Diagram:
                 self.used_cache |= used_cache
                 self.used_cache_larger |= used_cache_larger
                 self.used_cache_pruning |= used_cache_pruning
-                self.used_dominance |= self.layers[-1].filter_with_dominance()
+                (used_dominance, used_dominance_real) = self.layers[-1].filter_with_dominance()
+                self.used_dominance |= used_dominance
+                self.used_dominance_real |= used_dominance_real
                 self.used_rub |= self.layers[-1].filter_with_rub()
 
             if depth > self.input.root.depth and depth + 1 < self.input.model.nb_variables() and self.layers[-1].width() > self.input.settings.width:
