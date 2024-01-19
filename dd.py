@@ -1,6 +1,8 @@
 import math
 from enum import Enum
 
+from knapsack import CompilationMode
+
 class Cutset(Enum):
     LAYER = 0
     FRONTIER = 1
@@ -109,9 +111,10 @@ class Layer:
     def finalize(self):
         nodes = list(self.nodes.values())
         if self.width() > 0:
-            self.relax_helper(nodes, Node(nodes[0].state.clone(), nodes[0].depth, relaxed=False))
-        
-            current = next(iter(self.nodes.values()))
+            if self.input.model.mode == CompilationMode.DD:
+                self.relax_helper(nodes, Node(nodes[0].state.clone(), nodes[0].depth, relaxed=False))
+
+            current = max(self.nodes.values(), key=lambda n: n.value_top)
             while len(current.arcs) > 0:
                 for arc in current.arcs:
                     if arc.parent.value_top + arc.reward == current.value_top:

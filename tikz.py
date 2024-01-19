@@ -1,3 +1,4 @@
+from knapsack import CompilationMode
 import sane_tikz.core as stz
 import sane_tikz.formatting as fmt
 
@@ -9,7 +10,7 @@ class Label:
         self.position = position
 
 class Tikz:
-    def __init__(self, dd, show_locbs=True, show_thresholds=True, text_style=r"font=\scriptsize", opt_style=fmt.line_width(3 * fmt.standard_line_width), cutset_style=fmt.line_width(2 * fmt.standard_line_width), relaxed_style=fmt.fill_color("black!10"), ub_style=fmt.text_color("black!50"), arc_style=r"-{Straight Barb[length=3pt,width=4pt]}", node_radius=0.25, annotation_horizontal_spacing=0.25, annotation_vertical_spacing=0.22, pruning_info_vertical_spacing=0.5, node_horizontal_spacing=1.8, node_vertical_spacing=1.6, max_nodes=5, state_fmt=lambda x: x, node_labels=dict(), node_label_style=r"font=\large", legend=None, arcs_sep_angle=75, arc_positions=dict(), show_layer_label=False, show_variable_label=False, show_empty_layer=True, theta=r"\theta"):
+    def __init__(self, dd, show_locbs=True, show_thresholds=True, text_style="", opt_style=fmt.line_width(3 * fmt.standard_line_width), node_style=fmt.combine_tikz_strs([fmt.fill_color("Navy"), "draw=none", fmt.text_color("white")]), cutset_style=fmt.line_width(1.5 * fmt.standard_line_width), relaxed_style=fmt.combine_tikz_strs([fmt.fill_color("FireBrick"), "draw=none"]), ub_style=fmt.text_color("black!50"), arc_style=r"", node_radius=0.3, annotation_horizontal_spacing=0.25, annotation_vertical_spacing=0.25, pruning_info_vertical_spacing=0.5, node_horizontal_spacing=1.8, node_vertical_spacing=1.5, max_nodes=5, state_fmt=lambda x: x, node_labels=dict(), node_label_style=r"font=\large", legend=None, arcs_sep_angle=75, arc_positions=dict(), show_layer_label=False, show_variable_label=False, show_empty_layer=True, theta=r"\theta", theta_color="DarkTurquoise", value_unit=r"", max_layer=math.inf): #r"{\color{Cyan}\huge\raisebox{-2.5pt}{•}}""
         self.dd = dd
         self.nodes = [dict() for _ in range(dd.input.model.nb_variables() + 1)]
         self.others = []
@@ -22,13 +23,19 @@ class Tikz:
         self.show_variable_label = show_variable_label
         self.show_empty_layer = show_empty_layer
 
+        self.max_layer = max_layer
+
         self.text_style = text_style
         self.opt_style = opt_style
+        self.node_style = node_style
         self.cutset_style = cutset_style
         self.relaxed_style = relaxed_style
         self.ub_style = ub_style
         self.arc_style = arc_style
         self.node_label_style = node_label_style
+        self.value_unit = value_unit
+
+        self.theta_color = theta_color
 
         self.node_radius = node_radius
         self.annotation_horizontal_spacing = annotation_horizontal_spacing
@@ -49,20 +56,17 @@ class Tikz:
         node_elems = dict()
 
         # create circle with different formatting depending on flags
-        style = fmt.fill_color("white")
+        style = self.node_style
         if node.cutset and node.depth < self.dd.input.model.nb_variables():
             style = fmt.combine_tikz_strs([style, self.cutset_style])
-        if node.merged:
-            node_elems["circle2"] = stz.circle([0, 0], self.node_radius * 1.15, style)
         if node.relaxed:
             style = self.relaxed_style
         node_elems["circle"] = stz.circle([0, 0], self.node_radius, style)
 
         # state text
-        if node.depth == self.dd.input.model.nb_variables():
-            node_elems["state"] = stz.latex([0, 0], "$t$", self.text_style)
-        else:
-            node_elems["state"] = stz.latex([0, 0], self.state_fmt(node.state), self.text_style)
+        node_elems["state"] = stz.latex([0, 0], self.state_fmt(node.state), fmt.combine_tikz_strs([self.text_style, self.node_style, "fill=none"]))
+        if node.depth == self.dd.input.model.nb_variables() and self.dd.input.model.mode == CompilationMode.DD:
+            node_elems["goal"] = stz.circle([0, 0], self.node_radius, "draw=none,pattern=mypattern, pattern color=white")
 
         # record elements in hashmap
         self.nodes[node.depth][node.state] = node_elems
@@ -74,12 +78,12 @@ class Tikz:
 
         node_elems["value_top"] = stz.latex(
             stz.translate_coords_horizontally(node_elems["state"]["cs"], - self.annotation_horizontal_spacing),
-            r"$\mathbf{" + "{value_top}".format(value_top=node.value_top) + r"}$",
+            "{value_top}".format(value_top=node.value_top) + self.value_unit,
             fmt.combine_tikz_strs([self.text_style, fmt.anchor("right_center")])
         )
 
         # add local bounds for relaxed dds
-        if self.dd.relaxed and self.show_locbs:
+        if self.dd.relaxed and self.show_locbs and self.dd.input.settings.use_locb:
             node_elems["value_bot"] = stz.latex(
                 stz.translate_coords_horizontally(node_elems["state"]["cs"], - self.annotation_horizontal_spacing),
                 "{value_bot}".format(value_bot=(r"$-\infty$" if node.value_bot == -math.inf else node.value_bot)),
@@ -93,7 +97,7 @@ class Tikz:
             (not node.relaxed or node.theta < math.inf):
             node_elems["theta"] = stz.latex(
                 stz.translate_coords_horizontally(node_elems["state"]["cs"], - self.annotation_horizontal_spacing),
-                "{theta}".format(theta=(r"$"+ self.theta + "=" + (r"\infty" if node.theta == math.inf else str(node.theta)) + r"$")),
+                "{theta}".format(theta=(r"{\color{" + self.theta_color + "}" + (r"∞" if node.theta == math.inf else str(node.theta)) + r"}")),
                 fmt.combine_tikz_strs([self.text_style, fmt.anchor("right_center")])
             )
             e_lst = [node_elems["value_top"]]
@@ -106,42 +110,35 @@ class Tikz:
         # pruning info
         if node.deleted_by_rub or node.deleted_by_local_bounds or node.deleted_by_cache or node.deleted_by_dominance:
             bbox = stz.bbox(node_elems["circle"])
-            node_elems["cross1"] = stz.line_segment(bbox[0], bbox[1], fmt.combine_tikz_strs(["dash pattern=on 2pt off 1pt", fmt.line_width(1.5 * fmt.standard_line_width)]))
-            node_elems["cross2"] = stz.line_segment([bbox[0][0], bbox[1][1]], [bbox[1][0], bbox[0][1]], fmt.combine_tikz_strs(["dash pattern=on 2pt off 1pt", fmt.line_width(1.5 * fmt.standard_line_width)]))
+            node_elems["cross1"] = stz.line_segment(bbox[0], bbox[1], fmt.combine_tikz_strs(["dash pattern=on 2pt off 1pt", fmt.line_width(3 * fmt.standard_line_width), fmt.line_color("Gold")]))
+            node_elems["cross2"] = stz.line_segment([bbox[0][0], bbox[1][1]], [bbox[1][0], bbox[0][1]], fmt.combine_tikz_strs(["dash pattern=on 2pt off 1pt", fmt.line_width(3 * fmt.standard_line_width), fmt.line_color("Gold")]))
 
             text = ""
             if node.deleted_by_rub:
-                text = r"$" + \
-                        r"\mathbf{" + "{value_top}".format(value_top=node.value_top) + r"} + " + \
-                        r"{\color{black!50}" + "{rub}".format(rub=node.rub) + r"} \le " + \
-                        "{best}".format(best=node.deleted_by_hint) + \
-                        "$"
+                text = "{value_top}".format(value_top=node.value_top) + r" + " + \
+                        r"{\color{black!50}" + "{rub}".format(rub=node.rub) + r"} ≤ " + \
+                        "{best}".format(best=node.deleted_by_hint)
             if node.deleted_by_local_bounds:
-                text = r"$" + \
-                        r"\mathbf{" + "{value_top}".format(value_top=node.value_top) + r"} + " + \
-                        r"{\color{black!50}" + "{value_bot}".format(value_bot=node.value_bot) + r"} \le " + \
-                        "{best}".format(best=node.deleted_by_hint) + \
-                        "$"
+                text = "{value_top}".format(value_top=node.value_top) + r" + " + \
+                        r"{\color{black!50}" + "{value_bot}".format(value_bot=node.value_bot) + r"} ≤ " + \
+                        "{best}".format(best=node.deleted_by_hint)
             if node.deleted_by_cache:
-                text = r"$" + \
-                        r"\mathbf{" + "{value_top}".format(value_top=node.value_top) + r"} \le " + \
-                        "{theta}".format(theta=node.deleted_by_hint) + \
-                        "$"
+                text = "{value_top}".format(value_top=node.value_top) + r" ≤ " + \
+                        "{theta}".format(theta=node.deleted_by_hint)
             if node.deleted_by_dominance:
                 if self.dd.input.dominance_rule.use_value():
-                    text = r"$(\mathbf{" + "{value_top}".format(value_top=node.value_top) + r"}," + \
-                            "{state}".format(state=self.state_fmt(node.state)) + r") \prec " + \
-                            r"(\mathbf{" + "{value_top}".format(value_top=node.deleted_by_hint.value_top) + r"}," + \
-                            "{state}".format(state=self.state_fmt(node.deleted_by_hint.state)) + r") " + \
-                            "$"
+                    text = "(" + "{value_top}".format(value_top=node.value_top) + self.value_unit + r"," + \
+                            "{state}".format(state=self.state_fmt(node.state)) + r") ≤ " + \
+                            "(" + "{value_top}".format(value_top=node.deleted_by_hint.value_top) + self.value_unit + r"," + \
+                            "{state}".format(state=self.state_fmt(node.deleted_by_hint.state)) + r")"
                 else:
-                    text = "${state}".format(state=self.state_fmt(node.state)) + r" \prec " + \
-                            "{state}$".format(state=self.state_fmt(node.deleted_by_hint.state))
+                    text = "{state}".format(state=self.state_fmt(node.state)) + r" ≤ " + \
+                            "{state}".format(state=self.state_fmt(node.deleted_by_hint.state))
 
             node_elems["pruning"] = stz.latex(
                 stz.translate_coords_vertically(node_elems["state"]["cs"], - self.pruning_info_vertical_spacing),
                 text,
-                fmt.combine_tikz_strs([r"font=\tiny", "draw", "inner sep=1pt", fmt.fill_color("white")])
+                fmt.combine_tikz_strs([r"font=\scriptsize", "draw", "inner sep=1pt", fmt.fill_color("white")])
             )
         
         if node.state in self.node_labels:
@@ -219,13 +216,13 @@ class Tikz:
 
                 decoration = r"postaction={decorate, decoration={" \
                     + r"markings, mark=at position " + str(position) + r" with { \node[" \
-                    + fmt.combine_tikz_strs([self.text_style, "circle", fmt.fill_color("white"), "inner sep=0.5pt"]) \
+                    + fmt.combine_tikz_strs([r"font=\scriptsize", "circle", fmt.fill_color("white"), "inner sep=0.5pt"]) \
                     + r"]{" \
                     + str(arc.reward) \
                     + r"}; }}}"
 
                 line_style = [self.arc_style, decoration]
-                if arc.opt:
+                if arc.opt and self.max_layer + 1 >= len(self.dd.layers):
                     line_style.append(self.opt_style)
                 to_elems["arcs" + str(cnt)] = stz.bezier_with_symmetric_relative_angle_midway_controls(
                     from_cs_bezier, to_cs_bezier, alpha, 
@@ -278,7 +275,9 @@ class Tikz:
         e_lst = []
 
         # create nodes of each layer
-        for layer in self.dd.layers:
+        for i, layer in enumerate(self.dd.layers):
+            if i > self.max_layer:
+                break
             nodes = self.layer(layer)
             if len(nodes) > 0:
                 e_lst.insert(0, nodes)
@@ -291,10 +290,14 @@ class Tikz:
         bbox = stz.bbox(self.get_e_lst())
         if self.show_layer_label:
             for l in range(len(self.dd.layers)):
+                if l > self.max_layer:
+                    break
                 self.others.append(stz.latex([bbox[1][0] + self.node_horizontal_spacing / 2, (len(self.dd.layers) - 1 - l) * self.node_vertical_spacing], r"$L_" + str(self.dd.layers[l].depth) + r"$", self.text_style))
         
         if self.show_variable_label:
             for l in range(len(self.dd.layers) - 1):
+                if l == self.max_layer:
+                    break
                 self.others.append(stz.latex([bbox[1][0] + self.node_horizontal_spacing / 2, (len(self.dd.layers) - 1.5 - l) * self.node_vertical_spacing], r"$x_" + str(self.dd.layers[l].depth) + r"$", self.text_style))
 
 
@@ -315,11 +318,15 @@ class Tikz:
         self.layers()
 
         # add arcs once nodes are correctly placed
-        for layer in self.dd.layers:
+        for i, layer in enumerate(self.dd.layers):
+            if i > self.max_layer:
+                break
             self.layer_arcs(layer)
 
         # add node annotations
-        for layer in self.dd.layers:
+        for i, layer in enumerate(self.dd.layers):
+            if i > self.max_layer:
+                break
             self.layer_annotations(layer)
 
         # add legend
@@ -340,16 +347,34 @@ class Tikz:
         stz.draw_to_tikz_standalone(e_lst, file)
 
         # add needed tikzlibrary
-        match_str = r"\usetikzlibrary{arrows.meta}"
-        insert_str = r"\usetikzlibrary{decorations.markings}" + "\n"
+        match_str = [r"\usepackage{tikz}", r"\usetikzlibrary{arrows.meta}"]
+        insert_str = [r"\usepackage[usenames, svgnames]{xcolor}", r"""
+\usetikzlibrary{patterns}
+\usetikzlibrary{decorations.markings}
+\usepackage{fontspec}
+\setmainfont{PinkChicken}[Path=/Users/vcoppe/Downloads/,Extension=.ttf]
+\pgfdeclarepatternformonly[\size]{mypattern}
+{\pgfpoint{ -\size}{-\size}}
+{\pgfpoint{  \size}{ \size}}
+{\pgfpoint{2*\size}{2*\size}}
+{
+  \pgfpathrectangle{\pgfpoint{-\size}{-\size}}{\pgfpoint{\size}{\size}}
+  \pgfpathrectangle{\pgfpoint{0}{0}}{\pgfpoint{\size}{\size}}
+  \pgfusepath{fill}
+}
+\tikzset{
+  size/.store in=\size, size=3pt,
+}"""]
+        before = [True, False, False]
         with open(file, 'r+') as fd:
             contents = fd.readlines()
-            if match_str in contents[-1]:
-                contents.append(insert_str)
-            else:
+            for i in range(len(match_str)):
                 for index, line in enumerate(contents):
-                    if match_str in line:
-                        contents.insert(index + 1, insert_str)
+                    if match_str[i] in line:
+                        if before[i]:
+                            contents.insert(index, insert_str[i])
+                        else:
+                            contents.insert(index + 1, insert_str[i])
                         break
             fd.seek(0)
             fd.writelines(contents)
