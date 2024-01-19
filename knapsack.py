@@ -21,7 +21,7 @@ class KnapsackInstance:
         return "instance<" + str(self.n) + ", " + str(self.c) + ", " + str(self.w) + ", " + str(self.v) + ", " + str(self.q) + ">"
     
     def random(n, rand):
-        alpha = 6
+        alpha = 5
         beta = 2
 
         c = n * alpha // beta

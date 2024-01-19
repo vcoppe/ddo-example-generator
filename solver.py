@@ -17,7 +17,6 @@ class Solver:
         self.queue = PriorityQueue()
     
     def enqueue(self, node):
-        #self.queue.put((node.state, node))
         self.queue.put((- node.ub, node))
     
     def dequeue(self):

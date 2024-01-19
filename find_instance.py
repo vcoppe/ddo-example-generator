@@ -15,6 +15,7 @@ def main():
         
         # check if dominance is used for the exact DD
         dd = Diagram(CompilationInput(model, dominance_rule, Node(model.root()), 0, dict(), dict(), False, Settings(use_dominance=True)))
+        best = dd.get_best_value()
         if not dd.used_dominance:
             continue
 
@@ -22,9 +23,13 @@ def main():
         solver = Solver(model, dominance_rule, None)
         solver.solve([
             Settings(width=3, cutset=Cutset.LAYER, use_dominance=True),
-            Settings(width=3, cutset=Cutset.LAYER, use_cache=True, use_dominance=True),
+            Settings(width=3, cutset=Cutset.FRONTIER, use_cache=True, use_dominance=True),
         ], [0])
-        if len(solver.dds) != 4 or solver.dds[2].input.root.depth != 1 or solver.dds[3].input.root.depth != 1 or not (solver.dds[3].used_cache_larger or solver.dds[3].used_cache_pruning):
+        if len(solver.dds) != 4 or \
+            solver.dds[0].get_best_value() == best or \
+            solver.dds[2].input.root.depth != 1 or \
+            solver.dds[3].input.root.depth != 1 or \
+            not (solver.dds[3].used_cache_larger or solver.dds[3].used_cache_pruning):
             continue
             
         print(instance)

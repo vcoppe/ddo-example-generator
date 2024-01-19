@@ -10,13 +10,15 @@ class Label:
         self.position = position
 
 class Tikz:
-    def __init__(self, dd, show_locbs=True, show_thresholds=True, text_style="", opt_style=fmt.line_width(3 * fmt.standard_line_width), node_style=fmt.combine_tikz_strs([fmt.fill_color("Navy"), "draw=none", fmt.text_color("white")]), cutset_style=fmt.line_width(1.5 * fmt.standard_line_width), relaxed_style=fmt.combine_tikz_strs([fmt.fill_color("FireBrick"), "draw=none"]), ub_style=fmt.text_color("black!50"), arc_style=r"", node_radius=0.3, annotation_horizontal_spacing=0.25, annotation_vertical_spacing=0.25, pruning_info_vertical_spacing=0.5, node_horizontal_spacing=1.8, node_vertical_spacing=1.5, max_nodes=5, state_fmt=lambda x: x, node_labels=dict(), node_label_style=r"font=\large", legend=None, arcs_sep_angle=75, arc_positions=dict(), show_layer_label=False, show_variable_label=False, show_empty_layer=True, theta=r"\theta", theta_color="DarkTurquoise", value_unit=r"", max_layer=math.inf): #r"{\color{Cyan}\huge\raisebox{-2.5pt}{•}}""
+    def __init__(self, dd, show_locbs=True, show_thresholds=True, text_style="", opt_style=fmt.line_width(3 * fmt.standard_line_width), node_style=fmt.combine_tikz_strs([fmt.fill_color("Navy"), "draw=none", fmt.text_color("white")]), cutset_style=fmt.line_width(1.5 * fmt.standard_line_width), relaxed_style=fmt.combine_tikz_strs([fmt.fill_color("FireBrick"), "draw=none"]), ub_style=fmt.text_color("black!50"), arc_style=r"", node_radius=0.3, annotation_horizontal_spacing=0.25, annotation_vertical_spacing=0.25, pruning_info_vertical_spacing=0.5, node_horizontal_spacing=1.8, node_vertical_spacing=1.5, max_nodes=5, state_fmt=lambda x: x, node_labels=dict(), node_label_style=r"font=\large", legend=None, arcs_sep_angle=75, arc_positions=dict(), show_layer_label=False, show_variable_label=False, show_empty_layer=True, theta=r"\theta", theta_color="DarkTurquoise", value_unit=r"", max_layer=math.inf, show_deleted=False, show_merged=True): #r"{\color{Cyan}\huge\raisebox{-2.5pt}{•}}""
         self.dd = dd
         self.nodes = [dict() for _ in range(dd.input.model.nb_variables() + 1)]
         self.others = []
 
         self.theta = theta
 
+        self.show_merged = show_merged
+        self.show_deleted = show_deleted
         self.show_locbs = show_locbs
         self.show_thresholds = show_thresholds
         self.show_layer_label = show_layer_label
@@ -108,7 +110,7 @@ class Tikz:
             stz.align_centers_vertically([e_lst], node_elems["state"]["cs"][1])
 
         # pruning info
-        if node.deleted_by_rub or node.deleted_by_local_bounds or node.deleted_by_cache or node.deleted_by_dominance:
+        if node.deleted_by_rub or node.deleted_by_local_bounds or node.deleted_by_cache or node.deleted_by_dominance or node.deleted_by_shrink:
             bbox = stz.bbox(node_elems["circle"])
             node_elems["cross1"] = stz.line_segment(bbox[0], bbox[1], fmt.combine_tikz_strs(["dash pattern=on 2pt off 1pt", fmt.line_width(3 * fmt.standard_line_width), fmt.line_color("Gold")]))
             node_elems["cross2"] = stz.line_segment([bbox[0][0], bbox[1][1]], [bbox[1][0], bbox[0][1]], fmt.combine_tikz_strs(["dash pattern=on 2pt off 1pt", fmt.line_width(3 * fmt.standard_line_width), fmt.line_color("Gold")]))
@@ -134,12 +136,13 @@ class Tikz:
                 else:
                     text = "{state}".format(state=self.state_fmt(node.state)) + r" ≤ " + \
                             "{state}".format(state=self.state_fmt(node.deleted_by_hint.state))
-
-            node_elems["pruning"] = stz.latex(
-                stz.translate_coords_vertically(node_elems["state"]["cs"], - self.pruning_info_vertical_spacing),
-                text,
-                fmt.combine_tikz_strs([r"font=\scriptsize", "draw", "inner sep=1pt", fmt.fill_color("white")])
-            )
+                    
+            if len(text) > 0:
+                node_elems["pruning"] = stz.latex(
+                    stz.translate_coords_vertically(node_elems["state"]["cs"], - self.pruning_info_vertical_spacing),
+                    text,
+                    fmt.combine_tikz_strs([r"font=\scriptsize", "draw", "inner sep=1pt", fmt.fill_color("white")])
+                )
         
         if node.state in self.node_labels:
             bbox = stz.bbox(list(filter(lambda e: e["type"] == "latex", node_elems.values())))
@@ -269,6 +272,10 @@ class Tikz:
     def get_layer_nodes(self, layer):
         # get all nodes, even the pruned ones
         groups = [list(layer.nodes.values()), layer.deleted_by_dominance, layer.deleted_by_cache, layer.deleted_by_rub, layer.deleted_by_local_bounds]
+        if self.show_deleted and self.max_layer == layer.depth and layer.depth < self.dd.input.model.nb_variables():
+            groups.append(layer.deleted_by_shrink)
+        if not self.show_merged:
+            groups[0] = list(filter(lambda n: False if n.merged else True, groups[0]))
         return [node for group in groups for node in group]
     
     def layers(self):
@@ -347,8 +354,8 @@ class Tikz:
         stz.draw_to_tikz_standalone(e_lst, file)
 
         # add needed tikzlibrary
-        match_str = [r"\usepackage{tikz}", r"\usetikzlibrary{arrows.meta}"]
-        insert_str = [r"\usepackage[usenames, svgnames]{xcolor}", r"""
+        match_str = [r"\usepackage{tikz}", r"\usetikzlibrary{arrows.meta}", r"\begin{tikzpicture}", r"\end{tikzpicture}"]
+        insert_str = [r"\usepackage[paperwidth=128ex, paperheight=72ex, bottom=0ex, right=0ex, left=0ex, top=12ex]{geometry}\usepackage[usenames, svgnames]{xcolor}\pagenumbering{gobble}", r"""
 \usetikzlibrary{patterns}
 \usetikzlibrary{decorations.markings}
 \usepackage{fontspec}
@@ -364,10 +371,11 @@ class Tikz:
 }
 \tikzset{
   size/.store in=\size, size=3pt,
-}"""]
-        before = [True, False, False]
+}""", r"\begin{center}", r"\end{center}"]
+        before = [True, False, True, False]
         with open(file, 'r+') as fd:
             contents = fd.readlines()
+            contents[0] = "\documentclass[crop=false]{standalone}"
             for i in range(len(match_str)):
                 for index, line in enumerate(contents):
                     if match_str[i] in line:

@@ -21,7 +21,7 @@ def main():
     # instance<5, 15, [4, 6, 4, 4, 6], [8, 10, 2, 7, 9], [1, 1, 1, 1, 1]>
     # instance<5, 15, [5, 6, 5, 5, 6], [8, 10, 7, 2, 9], [1, 1, 1, 1, 1]>
 
-    instance = KnapsackInstance(5, 15, [3, 6, 5, 3, 6], [7, 8, 9, 2, 10], [1, 1, 1, 1, 1])
+    instance = KnapsackInstance(5, 12, [4, 5, 4, 4, 4], [9, 10, 2, 7, 8], [1, 1, 1, 1, 1])
 
     state_fmt = lambda x: "" if x.depth == instance.n and x.mode == CompilationMode.DD else str(x.capa) + "€"
 
@@ -30,7 +30,7 @@ def main():
 
     # show tree
     for i in range(instance.n + 1):
-        Tikz.to_file(Tikz(Diagram(CompilationInput(model, dominance_rule, Node(model.root()), 0, dict(), dict(), False, Settings())), state_fmt=state_fmt, show_thresholds=False, max_nodes=15, max_layer=i).diagram(), "tree_" + str(i))
+        Tikz.to_file(Tikz(Diagram(CompilationInput(model, dominance_rule, Node(model.root()), 0, dict(), dict(), False, Settings())), state_fmt=state_fmt, show_thresholds=False, max_nodes=11, max_layer=i).diagram(), "tree_" + str(i))
 
     model = KnapsackModel(instance, CompilationMode.DP)
 
@@ -50,6 +50,10 @@ def main():
         Tikz(solver.dds[1], state_fmt=state_fmt, show_thresholds=False).diagram(),
     ]), "first_approximate")
 
+    for i in range(instance.n + 1):
+        Tikz.to_file(Tikz(solver.dds[0], state_fmt=state_fmt, show_deleted=True, max_layer=i).diagram(), "rst_" + str(i) + "_a")
+        Tikz.to_file(Tikz(solver.dds[0], state_fmt=state_fmt, max_layer=i).diagram(), "rst_" + str(i) + "_b")
+
     # show dominance used for the exact DD
     Tikz.to_file(Tikz(Diagram(CompilationInput(model, dominance_rule, Node(model.root()), 0, dict(), dict(), False, Settings(use_dominance=True))), state_fmt=state_fmt, show_thresholds=False, max_nodes=6).diagram(), "exact_dominance")
 
@@ -57,7 +61,7 @@ def main():
     solver = Solver(model, dominance_rule, None)
     solver.solve([
         Settings(width=3, cutset=Cutset.LAYER, use_dominance=True),
-        Settings(width=3, cutset=Cutset.LAYER, use_cache=True, use_dominance=True),
+        Settings(width=3, cutset=Cutset.FRONTIER, use_cache=True, use_dominance=True),
     ], [0])
     Tikz.to_file(Tikz.combine([
         Tikz(solver.dds[0], state_fmt=state_fmt).diagram(),

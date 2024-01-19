@@ -45,6 +45,7 @@ class Node:
         self.deleted_by_local_bounds = False
         self.deleted_by_cache = False
         self.deleted_by_dominance = False
+        self.deleted_by_shrink = False
         self.deleted_by_hint = None
 
     def __lt__(self, other):
@@ -101,6 +102,7 @@ class Layer:
     
     def restrict(self, order):
         for node in order[self.input.settings.width:]:
+            node.deleted_by_shrink = True
             self.deleted_by_shrink.append(node)
             del self.nodes[node.state]
     
@@ -128,6 +130,7 @@ class Layer:
             merged.value_top = max(merged.value_top, node.value_top)
             merged.arcs.extend(node.arcs)
             merged.relaxed |= node.relaxed
+            node.deleted_by_shrink = True
             self.deleted_by_shrink.append(node)
             del self.nodes[node.state]
         self.insert(merged)
