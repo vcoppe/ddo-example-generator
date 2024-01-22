@@ -137,10 +137,10 @@ class Layer:
     
     def filter_with_dominance(self):
         if not self.input.settings.use_dominance:
-            return False
+            return 0
         if self.input.dominance_rule is None:
-            return False
-        used = False
+            return 0
+        used = 0
         order = sorted(self.nodes.values(), key=lambda n: (self.input.dominance_rule.value(n.state), n.value_top), reverse=True)
         for i in range(len(order)):
             node = order[i]
@@ -200,17 +200,17 @@ class Layer:
                         break
             
             if dominated:
-                used = True
+                used += 1
             else:
                 others.append(node)
         return used
     
     def filter_with_cache(self):
         if not self.input.settings.use_cache:
-            return (False, False, False)
-        used = False
-        used_larger = False
-        used_pruning = False
+            return (0, 0, 0)
+        used = 0
+        used_larger = 0
+        used_pruning = 0
         for node in list(self.nodes.values()):
             threshold = self.input.cache.get(node.state)
             if threshold is not None and node.value_top <= threshold.theta:
@@ -219,9 +219,11 @@ class Layer:
                 node.deleted_by_hint = threshold.theta
                 self.deleted_by_cache.append(node)
                 del self.nodes[node.state]
-                used = True
-                used_larger |= node.value_top > threshold.value_top
-                used_pruning |= threshold.pruning
+                used = 1
+                if node.value_top > threshold.value_top:
+                    used_larger += 1
+                if threshold.pruning:
+                    used_pruning += 1
         return (used, used_larger, used_pruning)
     
     def filter_with_rub(self):
@@ -324,10 +326,10 @@ class Diagram:
         self.relaxed = input.relaxed
         self.cutset_nodes = []
 
-        self.used_dominance = False
-        self.used_cache = False
-        self.used_cache_larger = False
-        self.used_cache_pruning = False
+        self.used_dominance = 0
+        self.used_cache = 0
+        self.used_cache_larger = 0
+        self.used_cache_pruning = 0
         self.used_rub = False
         self.used_locb = False
 
@@ -340,10 +342,10 @@ class Diagram:
 
             if depth + 1 < self.input.model.nb_variables():
                 (used_cache, used_cache_larger, used_cache_pruning) = self.layers[-1].filter_with_cache()
-                self.used_cache |= used_cache
-                self.used_cache_larger |= used_cache_larger
-                self.used_cache_pruning |= used_cache_pruning
-                self.used_dominance |= self.layers[-1].filter_with_dominance()
+                self.used_cache += used_cache
+                self.used_cache_larger += used_cache_larger
+                self.used_cache_pruning += used_cache_pruning
+                self.used_dominance += self.layers[-1].filter_with_dominance()
                 self.used_rub |= self.layers[-1].filter_with_rub()
 
             if depth > self.input.root.depth and depth + 1 < self.input.model.nb_variables() and self.layers[-1].width() > self.input.settings.width:

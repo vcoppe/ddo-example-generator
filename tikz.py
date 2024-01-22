@@ -1,3 +1,4 @@
+from dd import Layer
 from knapsack import CompilationMode
 import sane_tikz.core as stz
 import sane_tikz.formatting as fmt
@@ -10,7 +11,7 @@ class Label:
         self.position = position
 
 class Tikz:
-    def __init__(self, dd, show_locbs=True, show_thresholds=True, text_style="", opt_style=fmt.line_width(3 * fmt.standard_line_width), node_style=fmt.combine_tikz_strs([fmt.fill_color("Navy"), "draw=none", fmt.text_color("white")]), cutset_style=fmt.line_width(1.5 * fmt.standard_line_width), relaxed_style=fmt.combine_tikz_strs([fmt.fill_color("FireBrick"), "draw=none"]), ub_style=fmt.text_color("black!50"), arc_style=r"", node_radius=0.3, annotation_horizontal_spacing=0.25, annotation_vertical_spacing=0.25, pruning_info_vertical_spacing=0.5, node_horizontal_spacing=1.8, node_vertical_spacing=1.5, max_nodes=5, state_fmt=lambda x: x, node_labels=dict(), node_label_style=r"font=\large", legend=None, arcs_sep_angle=75, arc_positions=dict(), show_layer_label=False, show_variable_label=False, show_empty_layer=True, theta=r"\theta", theta_color="DarkTurquoise", value_unit=r"", max_layer=math.inf, show_deleted=False, show_merged=True): #r"{\color{Cyan}\huge\raisebox{-2.5pt}{•}}""
+    def __init__(self, dd, show_locbs=True, show_thresholds=True, text_style="", opt_style=fmt.line_width(4 * fmt.standard_line_width), node_style=fmt.combine_tikz_strs([fmt.fill_color("nodecolor"), "draw=none", fmt.text_color("white")]), cutset_style=fmt.line_width(1.5 * fmt.standard_line_width), relaxed_style=fmt.combine_tikz_strs([fmt.fill_color("FireBrick"), "draw=none"]), ub_style=fmt.text_color("black!50"), arc_style=r"", node_radius=0.3, annotation_horizontal_spacing=0.2, annotation_vertical_spacing=0.25, pruning_info_vertical_spacing=0.5, node_horizontal_spacing=1.8, node_vertical_spacing=1.5, max_nodes=5, state_fmt=lambda x: x, node_labels=dict(), node_label_style=r"font=\large", legend=None, arcs_sep_angle=75, arc_positions=dict(), show_layer_label=False, show_variable_label=False, show_empty_layer=True, show_prev_layer=True, theta=r"\theta", theta_color="DarkTurquoise", value_unit=r"", max_layer=math.inf, show_deleted=False, show_merged=True, show_cross=True):
         self.dd = dd
         self.nodes = [dict() for _ in range(dd.input.model.nb_variables() + 1)]
         self.others = []
@@ -19,11 +20,13 @@ class Tikz:
 
         self.show_merged = show_merged
         self.show_deleted = show_deleted
+        self.show_cross = show_cross
         self.show_locbs = show_locbs
         self.show_thresholds = show_thresholds
         self.show_layer_label = show_layer_label
         self.show_variable_label = show_variable_label
         self.show_empty_layer = show_empty_layer
+        self.show_prev_layer = show_prev_layer
 
         self.max_layer = max_layer
 
@@ -78,11 +81,18 @@ class Tikz:
     def node_annotations(self, node):
         node_elems = self.nodes[node.depth][node.state]
 
-        node_elems["value_top"] = stz.latex(
-            stz.translate_coords_horizontally(node_elems["state"]["cs"], - self.annotation_horizontal_spacing),
-            "{value_top}".format(value_top=node.value_top) + self.value_unit,
-            fmt.combine_tikz_strs([self.text_style, fmt.anchor("right_center")])
-        )
+        if node.depth == self.dd.input.model.nb_variables() and self.dd.input.model.mode == CompilationMode.TREE:
+            node_elems["value_top"] = stz.latex(
+                stz.translate_coords_vertically(node_elems["state"]["cs"], - self.annotation_vertical_spacing),
+                "{value_top}".format(value_top=node.value_top) + self.value_unit,
+                fmt.combine_tikz_strs([self.text_style, fmt.anchor("top_center")])
+            )
+        else:
+            node_elems["value_top"] = stz.latex(
+                stz.translate_coords_horizontally(node_elems["state"]["cs"], - self.annotation_horizontal_spacing),
+                "{value_top}".format(value_top=node.value_top) + self.value_unit,
+                fmt.combine_tikz_strs([self.text_style, fmt.anchor("right_center")])
+            )
 
         # add local bounds for relaxed dds
         if self.dd.relaxed and self.show_locbs and self.dd.input.settings.use_locb:
@@ -110,10 +120,10 @@ class Tikz:
             stz.align_centers_vertically([e_lst], node_elems["state"]["cs"][1])
 
         # pruning info
-        if node.deleted_by_rub or node.deleted_by_local_bounds or node.deleted_by_cache or node.deleted_by_dominance or node.deleted_by_shrink:
+        if node.deleted_by_rub or node.deleted_by_local_bounds or node.deleted_by_cache or node.deleted_by_dominance or (node.deleted_by_shrink and self.show_cross):
             bbox = stz.bbox(node_elems["circle"])
-            node_elems["cross1"] = stz.line_segment(bbox[0], bbox[1], fmt.combine_tikz_strs(["dash pattern=on 2pt off 1pt", fmt.line_width(3 * fmt.standard_line_width), fmt.line_color("Gold")]))
-            node_elems["cross2"] = stz.line_segment([bbox[0][0], bbox[1][1]], [bbox[1][0], bbox[0][1]], fmt.combine_tikz_strs(["dash pattern=on 2pt off 1pt", fmt.line_width(3 * fmt.standard_line_width), fmt.line_color("Gold")]))
+            node_elems["cross1"] = stz.line_segment(bbox[0], bbox[1], fmt.combine_tikz_strs(["dash pattern=on 2pt off 1pt", fmt.line_width(4 * fmt.standard_line_width), fmt.line_color("Gold")]))
+            node_elems["cross2"] = stz.line_segment([bbox[0][0], bbox[1][1]], [bbox[1][0], bbox[0][1]], fmt.combine_tikz_strs(["dash pattern=on 2pt off 1pt", fmt.line_width(4 * fmt.standard_line_width), fmt.line_color("Gold")]))
 
             text = ""
             if node.deleted_by_rub:
@@ -256,6 +266,14 @@ class Tikz:
             dummy_node = stz.circle([0, 0], self.node_radius, fmt.line_color("white"))
             self.others.append(dummy_node)
             e_lst.append(dummy_node)
+        
+        bbox = stz.bbox(e_lst)
+        if len(e_lst) < 10:
+            rectangle = stz.rectangle(stz.translate_coords_horizontally(bbox[0], -2*self.annotation_horizontal_spacing), stz.translate_coords_horizontally(bbox[1], 2*self.annotation_horizontal_spacing), "opacity=0")
+        else:
+            rectangle = stz.rectangle(stz.translate_coords_horizontally(bbox[0], -1.7*self.annotation_horizontal_spacing), stz.translate_coords_horizontally(bbox[1], 1.7*self.annotation_horizontal_spacing), "opacity=0")
+        self.others.append(rectangle)
+        e_lst.append(rectangle)
 
         return e_lst
     
@@ -274,7 +292,7 @@ class Tikz:
         groups = [list(layer.nodes.values()), layer.deleted_by_dominance, layer.deleted_by_cache, layer.deleted_by_rub, layer.deleted_by_local_bounds]
         if self.show_deleted and self.max_layer == layer.depth and layer.depth < self.dd.input.model.nb_variables():
             groups.append(layer.deleted_by_shrink)
-        if not self.show_merged:
+        if self.max_layer == layer.depth and not self.show_merged:
             groups[0] = list(filter(lambda n: False if n.merged else True, groups[0]))
         return [node for group in groups for node in group]
     
@@ -282,6 +300,11 @@ class Tikz:
         e_lst = []
 
         # create nodes of each layer
+        if self.show_prev_layer:
+            for i in range(self.dd.layers[0].depth):
+                nodes = self.layer(Layer(self.dd.input, i))
+                if len(nodes) > 0:
+                    e_lst.insert(0, nodes)
         for i, layer in enumerate(self.dd.layers):
             if i > self.max_layer:
                 break
@@ -369,6 +392,7 @@ class Tikz:
   \pgfpathrectangle{\pgfpoint{0}{0}}{\pgfpoint{\size}{\size}}
   \pgfusepath{fill}
 }
+\definecolor{nodecolor}{RGB}{7,77,125}
 \tikzset{
   size/.store in=\size, size=3pt,
 }""", r"\begin{center}", r"\end{center}"]

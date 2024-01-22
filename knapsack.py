@@ -21,7 +21,7 @@ class KnapsackInstance:
         return "instance<" + str(self.n) + ", " + str(self.c) + ", " + str(self.w) + ", " + str(self.v) + ", " + str(self.q) + ">"
     
     def random(n, rand):
-        alpha = 5
+        alpha = 6
         beta = 2
 
         c = n * alpha // beta
@@ -32,12 +32,21 @@ class KnapsackInstance:
         #rand.shuffle(q)
         q = [1 for _ in range(n)]
 
-        rand.shuffle(v)
+        for i in range(n - 1):
+            w.append(rand.randint(2, alpha))
+        w.append(rand.randint(1, min(w)))
 
-        for i in range(n):
+        if w[0] + w[1] + w[2] <= c:
+            c = w[0] + w[1] + w[2] - 1
+        
+        combined = [(v[i], w[i]) for i in range(n)]
+        rand.shuffle(combined)
+        v = [x[0] for x in combined]
+        w = [x[1] for x in combined]
+
+        for i in range(len(v), n):
             w.append(rand.randint(1, alpha))
-            if i >= len(v):
-                v.append(rand.randint(1, 10))
+            v.append(rand.randint(1, 10))
         
         return KnapsackInstance(n, c, w, v, q)
     

@@ -1,5 +1,6 @@
 from queue import PriorityQueue
 from dd import *
+import random
 
 class Settings:
     def __init__(self, width=math.inf, cutset=Cutset.LAYER, use_rub=False, use_locb=False, use_cache=False, use_dominance=False):
@@ -11,13 +12,17 @@ class Settings:
         self.use_dominance = use_dominance
 
 class Solver:
-    def __init__(self, model, dominance_rule, settings):
+    def __init__(self, model, dominance_rule, settings, order=0):
         self.input = CompilationInput(model, dominance_rule, None, 0, dict(), dict(), False, settings)
         self.dds = []
         self.queue = PriorityQueue()
+        self.order = order
     
     def enqueue(self, node):
-        self.queue.put((- node.ub, node))
+        if self.order == 0:
+            self.queue.put((node.state.capa, node))
+        else:
+            self.queue.put((- node.state.capa, node))
     
     def dequeue(self):
         return self.queue.get()[1]
