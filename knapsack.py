@@ -86,9 +86,10 @@ class KnapsackState:
         return "state<capa=" + str(self.capa) + ">"
 
 class KnapsackModel:
-    def __init__(self, instance, mode=CompilationMode.DD):
+    def __init__(self, instance, mode=CompilationMode.DD, aggregation=None):
         self.instance = instance
         self.mode = mode
+        self.aggregation = aggregation
     
     def nb_variables(self):
         return self.instance.n
@@ -108,15 +109,27 @@ class KnapsackModel:
     def reward(self, state, decision):
         return decision * self.instance.v[state.depth]
     
+    def score(self, state, decision):
+        if self.aggregation is None:
+            return 0
+        return self.aggregation.score(state, decision)
+    
     def merge(self, a, b):
         a.capa = max(a.capa, b.capa)
         a.depth = max(a.depth, b.depth)
     
     def rough_upper_bound(self, state):
-        if USE_LP_BOUND:
-            return self.lp_bound(state)
+        return 100000
+        # if USE_LP_BOUND:
+        #     return self.lp_bound(state)
+        # else:
+        #     return self.simple_bound(state)
+        
+    def aggregate_bound(self, state):
+        if self.aggregation is not None:
+            return self.aggregation.bound(state)
         else:
-            return self.simple_bound(state)
+            return math.inf
     
     def lp_bound(self, state): # needs the items to be sorted by decreasing v/w ratio
         capa = state.capa
@@ -148,3 +161,21 @@ class KnapsackDominance:
     
     def use_value(self):
         return True
+
+class KnapsackAggregation:
+    def __init__(self, diagram):
+        self.diagram = diagram
+
+    def bound(self, state):
+        bound = math.inf
+        for node in self.diagram.layers[state.depth].nodes.values():
+            if node.state.capa >= state.capa:
+                bound = min(bound, node.value_bot)
+        return bound
+
+    def score(self, state, decision):
+        solution = self.diagram.get_best_solution()
+        if decision == solution[state.depth]:
+            return 1
+        else:
+            return 0

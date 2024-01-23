@@ -3,13 +3,15 @@ from dd import *
 import random
 
 class Settings:
-    def __init__(self, width=math.inf, cutset=Cutset.LAYER, use_rub=False, use_locb=False, use_cache=False, use_dominance=False):
+    def __init__(self, width=math.inf, cutset=Cutset.LAYER, use_rub=False, use_locb=False, use_cache=False, use_dominance=False, use_aggb=False, use_aggh=False):
         self.width = width
         self.cutset = cutset
         self.use_rub = use_rub
         self.use_locb = use_locb
         self.use_cache = use_cache
         self.use_dominance = use_dominance
+        self.use_aggb = use_aggb
+        self.use_aggh = use_aggh
 
 class Solver:
     def __init__(self, model, dominance_rule, settings, order=0):

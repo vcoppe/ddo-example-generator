@@ -11,7 +11,7 @@ class Label:
         self.position = position
 
 class Tikz:
-    def __init__(self, dd, show_locbs=True, show_thresholds=True, text_style="", opt_style=fmt.line_width(4 * fmt.standard_line_width), node_style=fmt.combine_tikz_strs([fmt.fill_color("nodecolor"), "draw=none", fmt.text_color("white")]), cutset_style=fmt.line_width(1.5 * fmt.standard_line_width), relaxed_style=fmt.combine_tikz_strs([fmt.fill_color("FireBrick"), "draw=none"]), ub_style=fmt.text_color("black!50"), arc_style=r"", node_radius=0.3, annotation_horizontal_spacing=0.2, annotation_vertical_spacing=0.25, pruning_info_vertical_spacing=0.5, node_horizontal_spacing=1.8, node_vertical_spacing=1.5, max_nodes=5, state_fmt=lambda x: x, node_labels=dict(), node_label_style=r"font=\large", legend=None, arcs_sep_angle=75, arc_positions=dict(), show_layer_label=False, show_variable_label=False, show_empty_layer=True, show_prev_layer=True, theta=r"\theta", theta_color="DarkTurquoise", value_unit=r"", max_layer=math.inf, show_deleted=False, show_merged=True, show_cross=True):
+    def __init__(self, dd, show_locbs=True, show_thresholds=True, text_style="", opt_style=fmt.line_width(4 * fmt.standard_line_width), node_style=fmt.combine_tikz_strs([fmt.fill_color("nodecolor"), "draw=none", fmt.text_color("white")]), cutset_style=fmt.line_width(1.5 * fmt.standard_line_width), relaxed_style=fmt.combine_tikz_strs([fmt.fill_color("FireBrick"), "draw=none"]), ub_style=fmt.text_color("Green"), arc_style=r"", node_radius=0.3, annotation_horizontal_spacing=0.2, annotation_vertical_spacing=0.25, pruning_info_vertical_spacing=0.5, node_horizontal_spacing=1.8, node_vertical_spacing=1.5, max_nodes=5, state_fmt=lambda x: x, node_labels=dict(), node_label_style=r"font=\large", legend=None, arcs_sep_angle=75, arc_positions=dict(), show_layer_label=False, show_variable_label=False, show_empty_layer=True, show_prev_layer=True, theta=r"\theta", theta_color="DarkTurquoise", value_unit=r"", max_layer=math.inf, show_deleted=False, show_merged=True, show_cross=True):
         self.dd = dd
         self.nodes = [dict() for _ in range(dd.input.model.nb_variables() + 1)]
         self.others = []
@@ -118,6 +118,18 @@ class Tikz:
             e_lst.insert(0, node_elems["theta"])
             stz.distribute_vertically_with_spacing(e_lst, self.annotation_vertical_spacing)
             stz.align_centers_vertically([e_lst], node_elems["state"]["cs"][1])
+        
+        # add score for restricted dds
+        if not self.dd.relaxed and self.dd.input.settings.use_aggh:
+            node_elems["score"] = stz.latex(
+                stz.translate_coords_horizontally(node_elems["state"]["cs"], - self.annotation_horizontal_spacing),
+                "{score}".format(score=(r"{\color{Green} \scriptsize compat.=" + str(node.score) + r" }")),
+                fmt.combine_tikz_strs([self.text_style, fmt.anchor("right_center")])
+            )
+            e_lst = [node_elems["value_top"]]
+            e_lst.insert(0, node_elems["score"])
+            stz.distribute_vertically_with_spacing(e_lst, self.annotation_vertical_spacing)
+            stz.align_centers_vertically([e_lst], node_elems["state"]["cs"][1])
 
         # pruning info
         if node.deleted_by_rub or node.deleted_by_local_bounds or node.deleted_by_cache or node.deleted_by_dominance or (node.deleted_by_shrink and self.show_cross):
@@ -128,7 +140,7 @@ class Tikz:
             text = ""
             if node.deleted_by_rub:
                 text = "{value_top}".format(value_top=node.value_top) + r" + " + \
-                        r"{\color{black!50}" + "{rub}".format(rub=node.rub) + r"} ≤ " + \
+                        r"{\color{Green}" + "{rub}".format(rub=node.rub) + r"} ≤ " + \
                         "{best}".format(best=node.deleted_by_hint)
             if node.deleted_by_local_bounds:
                 text = "{value_top}".format(value_top=node.value_top) + r" + " + \
@@ -307,8 +319,12 @@ class Tikz:
                     e_lst.insert(0, nodes)
         for i, layer in enumerate(self.dd.layers):
             if i > self.max_layer:
-                break
-            nodes = self.layer(layer)
+                if self.show_empty_layer:
+                    nodes = self.layer(Layer(self.dd.input, i))
+                else:
+                    break
+            else:
+                nodes = self.layer(layer)
             if len(nodes) > 0:
                 e_lst.insert(0, nodes)
         

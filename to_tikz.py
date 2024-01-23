@@ -56,12 +56,12 @@ def main():
         Tikz.to_file(Tikz(solver.dds[1], state_fmt=state_fmt, show_thresholds=False, max_layer=i).diagram(), "rlx_" + str(i) + "_c")
 
     # show cutset exact DDs
-    solver = Solver(model, dominance_rule, None, order=1)
+    solver = Solver(model, dominance_rule, None, order=0)
     solver.solve([Settings(width=3, cutset=Cutset.LAYER), Settings()])
     Tikz.to_file(Tikz.combine([
-        Tikz(solver.dds[3], state_fmt=state_fmt, show_thresholds=False).diagram(),
         Tikz(solver.dds[2], state_fmt=state_fmt, show_thresholds=False).diagram(),
-    ], spacing=1.6), "cutset_exact")
+        Tikz(solver.dds[3], state_fmt=state_fmt, show_thresholds=False).diagram(),
+    ], spacing=1.5), "cutset_exact")
 
     # show dominance used for the exact DD
     Tikz.to_file(Tikz(Diagram(CompilationInput(model, dominance_rule, Node(model.root()), 0, dict(), dict(), False, Settings(use_dominance=True))), state_fmt=state_fmt, show_thresholds=False, max_nodes=6).diagram(), "exact_dominance")
@@ -70,7 +70,7 @@ def main():
     solver = Solver(model, dominance_rule, None, order=0)
     solver.solve([
         Settings(width=3, cutset=Cutset.LAYER, use_dominance=False),
-        Settings(width=3, cutset=Cutset.FRONTIER, use_cache=True, use_dominance=True),
+        Settings(cutset=Cutset.FRONTIER, use_cache=True, use_dominance=False),
     ], [0])
     Tikz.to_file(Tikz.combine([
         Tikz(solver.dds[0], state_fmt=state_fmt).diagram(),
@@ -84,7 +84,26 @@ def main():
     # show exact aggregate
     instance = KnapsackInstance(5, 8, [2, 2, 2, 2, 2], [2, 8, 10, 9, 7], [1, 1, 1, 1, 1])
     model = KnapsackModel(instance)
-    Tikz.to_file(Tikz(Diagram(CompilationInput(model, dominance_rule, Node(model.root()), 0, dict(), dict(), True, Settings(use_locb=True))), state_fmt=state_fmt, show_thresholds=False, show_locbs=True, max_nodes=6).diagram(), "aggregate")
+    aggregate = Diagram(CompilationInput(model, dominance_rule, Node(model.root()), 0, dict(), dict(), True, Settings(use_locb=True)))
+
+    instance = KnapsackInstance(5, 8, [2, 4, 2, 3, 2], [2, 8, 10, 9, 7], [1, 1, 1, 1, 1])
+    model = KnapsackModel(instance, aggregation=KnapsackAggregation(aggregate))
+    Tikz.to_file(Tikz(aggregate, state_fmt=state_fmt, show_thresholds=False, show_locbs=False, max_nodes=6).diagram(), "aggregate")
+
+    solver = Solver(model, dominance_rule, Settings(width=3, cutset=Cutset.LAYER, use_rub=True, use_cache=True, use_aggb=True, use_aggh=True), order=0)
+    solver.solve()
+    Tikz.to_file(Tikz.combine([
+        Tikz(solver.dds[0], state_fmt=state_fmt).diagram(),
+        Tikz(aggregate, state_fmt=state_fmt, show_thresholds=False, show_locbs=False, max_nodes=6).diagram()
+    ]), "aggregate_1")
+    for i in range(instance.n + 1):
+        Tikz.to_file(Tikz(solver.dds[0], state_fmt=state_fmt, show_deleted=True, show_cross=False, max_layer=i).diagram(), "aggregate_" + str(i) + "_a")
+        Tikz.to_file(Tikz(solver.dds[0], state_fmt=state_fmt, show_deleted=True, max_layer=i).diagram(), "aggregate_" + str(i) + "_b")
+        Tikz.to_file(Tikz(solver.dds[0], state_fmt=state_fmt, max_layer=i).diagram(), "aggregate_" + str(i) + "_c")
+    Tikz.to_file(Tikz.combine([
+        Tikz(solver.dds[1], state_fmt=state_fmt, show_thresholds=False).diagram(),
+        Tikz(aggregate, state_fmt=state_fmt, show_thresholds=False, show_locbs=True, max_nodes=6).diagram()
+    ]), "aggregate_2")
 
     # show large exact DD
     # instance = KnapsackInstance.random(20, random.Random(0))
